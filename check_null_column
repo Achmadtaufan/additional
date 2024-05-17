@@ -19,10 +19,14 @@ SET @sql = ''
 
 -- Bangun pernyataan SQL dinamis untuk setiap tabel dalam table variabel
 SELECT @sql = @sql + 
-            'SELECT DISTINCT ''' + tu.table_name + ''' AS table_name, ''' + c.COLUMN_NAME + ''' AS column_name ' +
+            'SELECT DISTINCT ''' + tu.table_name + ''' AS table_name, ''' + QUOTENAME(c.COLUMN_NAME) + ''' AS column_name ' +
             'FROM ' + QUOTENAME(tu.table_name) + ' ' + 
             'WHERE NOT EXISTS (' +
-                'SELECT 1 FROM ' + QUOTENAME(tu.table_name) + ' WHERE ' + QUOTENAME(c.COLUMN_NAME) + ' IS NOT NULL AND ' + QUOTENAME(c.COLUMN_NAME) + ' != '''' ' +
+                'SELECT 1 FROM ' + QUOTENAME(tu.table_name) + ' WHERE ' +
+                CASE 
+                    WHEN c.DATA_TYPE IN ('int', 'decimal', 'numeric') THEN QUOTENAME(c.COLUMN_NAME) + ' IS NOT NULL AND ' + QUOTENAME(c.COLUMN_NAME) + ' != 0'
+                    ELSE 'TRY_CONVERT(NVARCHAR(MAX), ' + QUOTENAME(c.COLUMN_NAME) + ') IS NOT NULL AND ' + QUOTENAME(c.COLUMN_NAME) + ' != '''''
+                END +
             ') ' +
             'UNION ALL '
 FROM @Table_Used tu
