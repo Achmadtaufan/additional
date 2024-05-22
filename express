@@ -1,0 +1,7 @@
+=Iif(Fields!DivisorField.Value = 0, 
+    0, 
+    Iif(IsNothing(Lookup(Fields!KeyField.Value, Fields!LookupKeyField.Value, Fields!ValueField.Value, "dataset2")), 
+        0, 
+        (Lookup(Fields!KeyField.Value, Fields!LookupKeyField.Value, Fields!ValueField.Value, "dataset2") + Fields!ValueField.Value) / Fields!DivisorField.Value
+    )
+)
