@@ -1,0 +1,10 @@
+-- Membuat tabel temporary
+CREATE TABLE #LinkedServerObjects (
+    ObjectName NVARCHAR(255),
+    ObjectType NVARCHAR(50),
+    LinkedServer NVARCHAR(255)
+)
+
+-- Menyimpan daftar objek Linked Server dari server 'idnwtsgl01' ke dalam tabel temporary
+INSERT INTO #LinkedServerObjects (ObjectName, ObjectType, LinkedServer)
+EXEC sp_linkedservers @server = 'idnwtsgl01'
