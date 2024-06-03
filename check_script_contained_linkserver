@@ -1,0 +1,51 @@
+-- Membuat tabel untuk menyimpan hasil screening
+CREATE TABLE #ScreenedObjects (
+    ObjectName NVARCHAR(255),
+    ObjectType NVARCHAR(50),
+    LinkedServer NVARCHAR(255),
+    Script NVARCHAR(MAX)
+)
+
+-- Membuat script untuk screening objek yang terhubung ke Linked Server
+DECLARE @ObjectName NVARCHAR(255)
+DECLARE @ObjectType NVARCHAR(50)
+DECLARE @LinkedServer NVARCHAR(255)
+DECLARE @Script NVARCHAR(MAX)
+
+DECLARE cur CURSOR FOR
+SELECT ObjectName, ObjectType, LinkedServer FROM #LinkedServerObjects
+
+OPEN cur
+FETCH NEXT FROM cur INTO @ObjectName, @ObjectType, @LinkedServer
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @Script = ''
+
+    IF @ObjectType = 'VIEW'
+    BEGIN
+        SET @Script = 'sp_refreshview ''' + @ObjectName + ''''
+    END
+    ELSE IF @ObjectType IN ('PROCEDURE', 'FUNCTION')
+    BEGIN
+        SET @Script = 'sp_refreshsqlmodule ''' + @ObjectName + ''''
+    END
+
+    IF @Script != ''
+    BEGIN
+        INSERT INTO #ScreenedObjects (ObjectName, ObjectType, LinkedServer, Script)
+        VALUES (@ObjectName, @ObjectType, @LinkedServer, @Script)
+    END
+
+    FETCH NEXT FROM cur INTO @ObjectName, @ObjectType, @LinkedServer
+END
+
+CLOSE cur
+DEALLOCATE cur
+
+-- Menampilkan hasil screening
+SELECT * FROM #ScreenedObjects
+
+-- Menghapus tabel temporary
+DROP TABLE #LinkedServerObjects
+DROP TABLE #ScreenedObjects
