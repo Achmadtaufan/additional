@@ -1,0 +1,33 @@
+-- Membuat tabel untuk menampung nama linked server
+CREATE TABLE dbo.LinkedServerNames (
+    ID INT IDENTITY(1,1),
+    LinkedServerName NVARCHAR(100)
+)
+
+-- Menyimpan nama linked server ke dalam tabel
+INSERT INTO dbo.LinkedServerNames (LinkedServerName)
+SELECT name
+FROM sys.servers
+WHERE is_linked = 1
+
+-- Menentukan teks pencarian (ganti 'nama_tabel_penampung' dengan nama tabel penampung yang sesuai)
+DECLARE @SearchText NVARCHAR(100) = 'nama_tabel_penampung'
+
+-- Mencari script yang mengandung nama linked server di semua database
+DECLARE @SQL NVARCHAR(MAX) = ''
+
+SELECT @SQL += 'USE [' + name + '];
+               IF EXISTS (SELECT 1 FROM sys.objects WHERE type IN (''V'',''P'',''FN'') AND OBJECT_DEFINITION(object_id) LIKE ''%'' + @SearchText + ''%'')
+               BEGIN
+                   PRINT ''Database: ' + name + '''
+                   PRINT ''---------------------------------''
+                   SELECT OBJECT_SCHEMA_NAME(object_id) + ''.'' + name AS ObjectName, type_desc AS ObjectType
+                   FROM sys.objects
+                   WHERE type IN (''V'',''P'',''FN'') AND OBJECT_DEFINITION(object_id) LIKE ''%'' + @SearchText + ''%''
+               END
+               ' 
+FROM sys.databases
+WHERE state_desc = 'ONLINE'
+
+-- Mengeksekusi skrip
+EXEC sp_executesql @SQL, N'@SearchText NVARCHAR(100)', @SearchText
