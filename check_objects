@@ -1,0 +1,58 @@
+-- Membuat tabel untuk menampung nama linked server di database yang dapat Anda akses
+USE [nama_database_yang_dapat_anda_akses];
+
+CREATE TABLE dbo.LinkedServerNames (
+    ID INT IDENTITY(1,1),
+    LinkedServerName NVARCHAR(100)
+)
+
+-- Menyimpan nama linked server ke dalam tabel
+INSERT INTO dbo.LinkedServerNames (LinkedServerName)
+SELECT name
+FROM sys.servers
+WHERE is_linked = 1
+
+-- Membuat cursor untuk mengiterasi melalui semua database yang Anda miliki aksesnya
+DECLARE @DBName NVARCHAR(100)
+DECLARE @SearchText NVARCHAR(100)
+DECLARE @SQL NVARCHAR(MAX)
+
+DECLARE db_cursor CURSOR FOR
+SELECT name
+FROM sys.databases
+WHERE state_desc = 'ONLINE'
+
+OPEN db_cursor
+FETCH NEXT FROM db_cursor INTO @DBName
+
+-- Loop melalui setiap database
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @SQL = ''
+    SET @SearchText = 'nama_tabel_penampung'
+
+    SET @SQL += 'USE [' + @DBName + '];
+               IF EXISTS (SELECT 1 FROM sys.objects WHERE type IN (''V'',''P'',''FN'') AND OBJECT_DEFINITION(object_id) LIKE ''%'' + @SearchText + ''%'')
+               BEGIN
+                   PRINT ''Database: ' + @DBName + '''
+                   PRINT ''---------------------------------''
+                   SELECT OBJECT_SCHEMA_NAME(object_id) + ''.'' + name AS ObjectName,
+                          CASE 
+                             WHEN type = ''V'' THEN ''VIEW''
+                             WHEN type = ''P'' THEN ''PROCEDURE''
+                             WHEN type = ''FN'' THEN ''FUNCTION''
+                             ELSE ''UNKNOWN''
+                          END AS ObjectType
+                   FROM sys.objects
+                   WHERE type IN (''V'',''P'',''FN'') AND OBJECT_DEFINITION(object_id) LIKE ''%'' + @SearchText + ''%''
+               END
+               ' 
+
+    -- Eksekusi skrip
+    EXEC sp_executesql @SQL
+
+    FETCH NEXT FROM db_cursor INTO @DBName
+END
+
+CLOSE db_cursor
+DEALLOCATE db_cursor
