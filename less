@@ -1,0 +1,18 @@
+-- Variabel untuk nama view yang ingin diperiksa
+DECLARE @ViewName NVARCHAR(100) = 'v_anjing_setan'
+
+-- Memeriksa keberadaan referensi ke linked server dalam view
+IF EXISTS (
+    SELECT 1
+    FROM sys.views v
+    INNER JOIN sys.sql_modules m ON v.object_id = m.object_id
+    INNER JOIN #LinkServers ls ON CHARINDEX(ls.LinkServerName, m.definition) > 0
+    WHERE v.name = @ViewName
+)
+BEGIN
+    PRINT 'View ' + @ViewName + ' mengandung referensi ke linked server yang telah ditampung.'
+END
+ELSE
+BEGIN
+    PRINT 'View ' + @ViewName + ' tidak mengandung referensi ke linked server yang telah ditampung.'
+END
