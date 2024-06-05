@@ -47,7 +47,6 @@ BEGIN
     DECLARE type_cursor CURSOR FOR
     SELECT DISTINCT type_desc
     FROM sys.objects
-    WHERE type IN ('V', 'FN', 'IF')
 
     OPEN type_cursor
     FETCH NEXT FROM type_cursor INTO @ObjectType
@@ -69,7 +68,7 @@ BEGIN
             DECLARE @ObjectScript NVARCHAR(MAX)
 
             SET @ObjectScript = (
-                SELECT OBJECT_DEFINITION(OBJECT_ID(QUOTENAME(s.name) + '.' + QUOTENAME(o.name)))
+                SELECT OBJECT_DEFINITION(OBJECT_ID(QUOTENAME(@DatabaseName) + '.' + QUOTENAME(s.name) + '.' + QUOTENAME(o.name)))
                 FROM sys.objects o
                 INNER JOIN sys.schemas s ON o.schema_id = s.schema_id
                 WHERE o.name = @ObjectName AND s.name = 'dbo' -- Sesuaikan dengan skema Anda
