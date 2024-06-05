@@ -1,0 +1,72 @@
+-- Membuat temporary table untuk menyimpan nama link server
+CREATE TABLE #LinkServers (LinkServerName NVARCHAR(100))
+
+-- Memasukkan nama link server yang dimiliki oleh server idnlolita ke dalam temporary table
+INSERT INTO #LinkServers (LinkServerName)
+SELECT name
+FROM sys.servers
+WHERE is_linked = 1
+
+-- Membuat temporary table untuk menyimpan hasil pencarian objek
+CREATE TABLE #ObjectsWithLinkServer (ObjectName NVARCHAR(100), ObjectType NVARCHAR(50), LinkServerUsed NVARCHAR(100))
+
+-- Loop melalui setiap database untuk mencari objek yang menggunakan nama link server
+DECLARE @LinkServerName NVARCHAR(100)
+DECLARE link_cursor CURSOR FOR
+SELECT LinkServerName
+FROM #LinkServers
+
+OPEN link_cursor
+FETCH NEXT FROM link_cursor INTO @LinkServerName
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    -- Loop melalui setiap objek dalam setiap database
+    DECLARE @SQL NVARCHAR(MAX)
+
+    SET @SQL = '
+        DECLARE @DatabaseName NVARCHAR(100)
+        DECLARE db_cursor CURSOR FOR
+        SELECT name
+        FROM sys.databases
+        WHERE state_desc = ''ONLINE''
+
+        OPEN db_cursor
+        FETCH NEXT FROM db_cursor INTO @DatabaseName
+
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            USE @DatabaseName;
+
+            INSERT INTO #ObjectsWithLinkServer (ObjectName, ObjectType, LinkServerUsed)
+            SELECT 
+                QUOTENAME(OBJECT_SCHEMA_NAME(objects.object_id)) + ''.'' + QUOTENAME(objects.name) AS ObjectName,
+                objects.type_desc AS ObjectType,
+                @LinkServerName AS LinkServerUsed
+            FROM sys.objects
+            WHERE 
+                objects.type IN (''V'', ''P'', ''FN'', ''IF'') AND
+                OBJECT_DEFINITION(objects.object_id) LIKE ''%'' + @LinkServerName + ''%''
+
+            FETCH NEXT FROM db_cursor INTO @DatabaseName
+        END
+
+        CLOSE db_cursor
+        DEALLOCATE db_cursor
+    '
+
+    EXEC sp_executesql @SQL, N'@LinkServerName NVARCHAR(100)', @LinkServerName
+
+    FETCH NEXT FROM link_cursor INTO @LinkServerName
+END
+
+CLOSE link_cursor
+DEALLOCATE link_cursor
+
+-- Menampilkan hasil pencarian
+SELECT *
+FROM #ObjectsWithLinkServer
+
+-- Menghapus temporary tables
+DROP TABLE #LinkServers
+DROP TABLE #ObjectsWithLinkServer
