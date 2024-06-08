@@ -1,0 +1,51 @@
+Date		08/06/2024 19:40:00
+Log		Job History (REPORTTOOLS)
+
+Step ID		1
+Server		IDNETLDTSPRD1
+Job Name		REPORTTOOLS
+Step Name		EXEC SP SUBMISSIONBYAGENTHIERARCHY
+Duration		00:01:15
+Sql Severity	0
+Sql Message ID	0
+Operator Emailed	
+Operator Net sent	
+Operator Paged	
+Retries Attempted	0
+
+Message
+Executed as user: ID\svc_idndwh. ...sion 15.0.4326.1 for 64-bit  
+Copyright (C) 2019 Microsoft. All rights reserved.    
+Started:  7:40:00 PM  Error: 2024-06-08 19:40:00.71     
+Code: 0xC0016016     Source: REPORTTOOLS-SUBBYAGENTHIERARCHY      
+Description: Failed to decrypt protected XML node "DTS:Password" with error 0x8009000B "Key not valid for use in specified state.". 
+You may not be authorized to access this information. This error occurs when there is a cryptographic error. Verify that the correct key is available.  
+End Error  Error: 2024-06-08 19:40:00.71     Code: 0xC0016016     Source: REPORTTOOLS-SUBBYAGENTHIERARCHY      
+Description: Failed to decrypt protected XML node "DTS:Password" with error 0x8009000B "Key not valid for use in specified state.". 
+You may not be authorized to access this information. This error occurs when there is a cryptographic error. Verify that the correct key is available.  
+End Error  Error: 2024-06-08 19:40:00.72     Code: 0xC0016016     Source: REPORTTOOLS-SUBBYAGENTHIERARCHY      
+Description: Failed to decrypt protected XML node "DTS:Password" with error 0x8009000B "Key not valid for use in specified state.". 
+You may not be authorized to access this information. This error occurs when there is a cryptographic error. Verify that the correct key is available.  
+End Error  Error: 2024-06-08 19:40:53.22     Code: 0xC0202009     Source: SUBMISSIONBYAGENTHIERACHY SUBMISSIONBYAGENTHIERACHY [152]     
+Description: SSIS Error Code DTS_E_OLEDBERROR.  An OLE DB error has occurred. Error code: 0x80040E21.  An OLE DB record is available.  
+Source: "Microsoft SQL Server Native Client 11.0"  Hresult: 0x80040E21  
+Description: "Multiple-step OLE DB operation generated errors. Check each OLE DB status value, if available. No work was done.".  
+End Error  Error: 2024-06-08 19:40:53.22     Code: 0xC002F446     Source: SUBMISSIONBYAGENTHIERACHY SUBMISSIONBYAGENTHIERACHY [152]     
+Description: An error occurred while setting up a binding for the "CHANNELCD" column. The binding status was "DT_TEXT". 
+The data flow column type is "DBBINDSTATUS_UNSUPPORTEDCONVERSION". 
+The conversion from the OLE DB type of "DBTYPE_IUNKNOWN" to the destination column type of "DBTYPE_VARCHAR" might not be supported by this provider.  
+End Error  Error: 2024-06-08 19:40:53.22     Code: 0xC002F446     Source: SUBMISSIONBYAGENTHIERACHY SUBMISSIONBYAGENTHIERACHY [152]     
+Description: An error occurred while setting up a binding for the "CLIENTCODE" column. The binding status was "DT_TEXT". 
+The data flow column type is "DBBINDSTATUS_UNSUPPORTEDCONVERSION". 
+The conversion from the OLE DB type of "DBTYPE_IUNKNOWN" to the destination column type of "DBTYPE_VARCHAR" might not be supported by this provider.  
+End Error  Error: 2024-06-08 19:40:53.22     Code: 0xC002F446     Source: SUBMISSIONBYAGENTHIERACHY SUBMISSIONBYAGENTHIERACHY [152]     
+Description: An error occurred while setting up a binding for the "CLIENTNAME" column. The binding status was "DT_TEXT". 
+The data flow column type is "DBBINDSTATUS_UNSUPPORTEDCONVERSION". 
+The conversion from the OLE DB type of "DBTYPE_IUNKNOWN" to the destination column type of "DBTYPE_VARCHAR" might not be supported by this provider.  
+End Error  Error: 2024-06-08 19:40:53.22     Code: 0xC002F446     Source: SUBMISSIONBYAGENTHIERACHY SUBMISSIONBYAGENTHIERACHY [152]     
+Description: An error occurred while setting up a binding for the "POLICYNUMBER" column. The binding status was "DT_TEXT". 
+The data flow column type is "DBBINDSTATUS_UNSUPPORTEDCONVERSION". 
+The conversion from the OLE DB type of "DBTYPE_IUNKNOWN" to the destination column type of "DBTYPE_VARCHAR" might not be supported by this provider.  
+End Error  Error: 2024-06-08 19:40:53.22     Code: 0xC002F446     Source: SUBMISSIONBYAGENTHIERACHY SUBMISSIONBYAGENTHIERACHY [152]     
+Description: An error occurred while setting up a binding for the "PLANCODE" column. 
+The binding status was "DT_TEXT". The data...  The package execution fa...  The step failed.
