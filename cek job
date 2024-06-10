@@ -1,0 +1,27 @@
+USE msdb;  -- Pastikan Anda menggunakan database msdb
+
+SELECT 
+    j.name AS JobName,
+    h.run_date AS RunDate,
+    RIGHT('000000' + CAST(h.run_time AS VARCHAR(6)), 6) AS RunTime,
+    h.run_duration AS RunDuration,
+    CASE 
+        WHEN h.run_status = 0 THEN 'Failed'
+        WHEN h.run_status = 1 THEN 'Succeeded'
+        WHEN h.run_status = 2 THEN 'Retry'
+        WHEN h.run_status = 3 THEN 'Canceled'
+        WHEN h.run_status = 4 THEN 'In Progress'
+    END AS LastRunOutcome,
+    DATEADD(SECOND, h.run_duration % 100 + (h.run_duration / 100 % 100) * 60 + (h.run_duration / 10000) * 3600, 
+            CAST(CAST(h.run_date AS CHAR(8)) + ' ' + 
+                 STUFF(STUFF(RIGHT('000000' + CAST(h.run_time AS VARCHAR(6)), 6), 5, 0, ':'), 3, 0, ':') 
+                 AS DATETIME)) AS EndTime
+FROM 
+    sysjobs j
+INNER JOIN 
+    sysjobhistory h ON j.job_id = h.job_id
+WHERE 
+    j.name = 'a'  -- Ganti 'a' dengan nama job yang ingin dicari
+    AND h.step_id = 0  -- Step_id = 0 mengindikasikan eksekusi keseluruhan job
+ORDER BY 
+    h.run_date DESC, h.run_time DESC;
