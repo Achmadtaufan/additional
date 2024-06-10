@@ -1,22 +1,12 @@
 USE msdb;  -- Pastikan Anda menggunakan database msdb
 
-WITH JobRuns AS (
+-- CTE untuk mendapatkan waktu terakhir job dijalankan
+WITH LastRunCTE AS (
     SELECT 
         j.name AS JobName,
-        h.run_date AS RunDate,
-        RIGHT('000000' + CAST(h.run_time AS VARCHAR(6)), 6) AS RunTime,
-        h.run_duration AS RunDuration,
-        CASE 
-            WHEN h.run_status = 0 THEN 'Failed'
-            WHEN h.run_status = 1 THEN 'Succeeded'
-            WHEN h.run_status = 2 THEN 'Retry'
-            WHEN h.run_status = 3 THEN 'Canceled'
-            WHEN h.run_status = 4 THEN 'In Progress'
-        END AS LastRunOutcome,
-        DATEADD(SECOND, h.run_duration % 100 + (h.run_duration / 100 % 100) * 60 + (h.run_duration / 10000) * 3600, 
-                CAST(CAST(h.run_date AS CHAR(8)) + ' ' + 
-                     STUFF(STUFF(RIGHT('000000' + CAST(h.run_time AS VARCHAR(6)), 6), 5, 0, ':'), 3, 0, ':') 
-                     AS DATETIME)) AS EndTime
+        MAX(CAST(CAST(h.run_date AS CHAR(8)) + ' ' + 
+                 STUFF(STUFF(RIGHT('000000' + CAST(h.run_time AS VARCHAR(6)), 6), 5, 0, ':'), 3, 0, ':') 
+                 AS DATETIME)) AS LastRun
     FROM 
         sysjobs j
     INNER JOIN 
@@ -24,30 +14,36 @@ WITH JobRuns AS (
     WHERE 
         j.name = 'a'  -- Ganti 'a' dengan nama job yang ingin dicari
         AND h.step_id = 0  -- Step_id = 0 mengindikasikan eksekusi keseluruhan job
-),
-LastRun AS (
-    SELECT 
-        JobName,
-        MAX(CAST(CAST(RunDate AS CHAR(8)) + ' ' + 
-                STUFF(STUFF(RunTime, 5, 0, ':'), 3, 0, ':') 
-                AS DATETIME)) AS LastRunTime
-    FROM 
-        JobRuns
     GROUP BY 
-        JobName
+        j.name
 )
 
+-- Query utama untuk mendapatkan detail eksekusi job
 SELECT 
-    jr.JobName,
-    lr.LastRunTime AS LastRunTime,
-    jr.RunDate,
-    jr.RunTime,
-    jr.RunDuration,
-    jr.LastRunOutcome,
-    jr.EndTime
+    j.name AS JobName,
+    lr.LastRun AS LastRunTime,
+    h.run_date AS RunDate,
+    RIGHT('000000' + CAST(h.run_time AS VARCHAR(6)), 6) AS RunTime,
+    h.run_duration AS RunDuration,
+    CASE 
+        WHEN h.run_status = 0 THEN 'Failed'
+        WHEN h.run_status = 1 THEN 'Succeeded'
+        WHEN h.run_status = 2 THEN 'Retry'
+        WHEN h.run_status = 3 THEN 'Canceled'
+        WHEN h.run_status = 4 THEN 'In Progress'
+    END AS LastRunOutcome,
+    DATEADD(SECOND, h.run_duration % 100 + (h.run_duration / 100 % 100) * 60 + (h.run_duration / 10000) * 3600, 
+            CAST(CAST(h.run_date AS CHAR(8)) + ' ' + 
+                 STUFF(STUFF(RIGHT('000000' + CAST(h.run_time AS VARCHAR(6)), 6), 5, 0, ':'), 3, 0, ':') 
+                 AS DATETIME)) AS EndTime
 FROM 
-    JobRuns jr
+    sysjobs j
 INNER JOIN 
-    LastRun lr ON jr.JobName = lr.JobName
+    sysjobhistory h ON j.job_id = h.job_id
+INNER JOIN 
+    LastRunCTE lr ON j.name = lr.JobName
+WHERE 
+    j.name = 'a'  -- Ganti 'a' dengan nama job yang ingin dicari
+    AND h.step_id = 0  -- Step_id = 0 mengindikasikan eksekusi keseluruhan job
 ORDER BY 
-    jr.RunDate DESC, jr.RunTime DESC;
+    h.run_date DESC, h.run_time DESC;
