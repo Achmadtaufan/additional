@@ -6,7 +6,7 @@ WITH LastRunCTE AS (
         j.name AS JobName,
         MAX(CAST(CAST(h.run_date AS CHAR(8)) + ' ' + 
                  STUFF(STUFF(RIGHT('000000' + CAST(h.run_time AS VARCHAR(6)), 6), 5, 0, ':'), 3, 0, ':') 
-                 AS DATETIME)) AS LastRun
+                 AS DATETIME)) AS LastRunTime
     FROM 
         sysjobs j
     INNER JOIN 
@@ -18,10 +18,10 @@ WITH LastRunCTE AS (
         j.name
 )
 
--- Query utama untuk mendapatkan detail eksekusi job
+-- Query utama untuk mendapatkan detail eksekusi job terakhir
 SELECT 
     j.name AS JobName,
-    lr.LastRun AS LastRunTime,
+    lr.LastRunTime AS LastRunTime,
     h.run_date AS RunDate,
     RIGHT('000000' + CAST(h.run_time AS VARCHAR(6)), 6) AS RunTime,
     h.run_duration AS RunDuration,
@@ -42,6 +42,9 @@ INNER JOIN
     sysjobhistory h ON j.job_id = h.job_id
 INNER JOIN 
     LastRunCTE lr ON j.name = lr.JobName
+    AND CAST(CAST(h.run_date AS CHAR(8)) + ' ' + 
+             STUFF(STUFF(RIGHT('000000' + CAST(h.run_time AS VARCHAR(6)), 6), 5, 0, ':'), 3, 0, ':') 
+             AS DATETIME) = lr.LastRunTime
 WHERE 
     j.name = 'a'  -- Ganti 'a' dengan nama job yang ingin dicari
     AND h.step_id = 0  -- Step_id = 0 mengindikasikan eksekusi keseluruhan job
