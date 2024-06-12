@@ -3,7 +3,9 @@ DECLARE @LinkedServers TABLE (ServerName SYSNAME);
 
 -- Mendapatkan semua Linked Server
 INSERT INTO @LinkedServers (ServerName)
-EXEC sp_linkedservers;
+SELECT name
+FROM sys.servers
+WHERE is_linked = 1;
 
 -- Menampung nama database
 DECLARE @DatabaseName SYSNAME;
@@ -12,7 +14,7 @@ DECLARE @DatabaseName SYSNAME;
 DECLARE db_cursor CURSOR FOR
 SELECT name
 FROM sys.databases
-WHERE state_desc = 'ONLINE' -- Hanya database yang online
+WHERE state_desc = 'ONLINE'; -- Hanya database yang online
 
 -- Variable untuk menampung hasil sementara
 DECLARE @Sql NVARCHAR(MAX);
