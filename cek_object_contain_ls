@@ -90,3 +90,27 @@ DEALLOCATE db_cursor;
 SELECT *
 FROM @Results
 ORDER BY DatabaseName, ObjectType, ObjectName;
+
+
+/*
+
+Msg 102, Level 15, State 1, Line 68
+Incorrect syntax near ']'.
+Msg 105, Level 15, State 1, Line 90
+Unclosed quotation mark after the character string ' + @DatabaseName;
+    END CATCH;
+
+    FETCH NEXT FROM db_cursor INTO @DatabaseName;
+END;
+
+CLOSE db_cursor;
+DEALLOCATE db_cursor;
+
+-- Menampilkan hasil
+SELECT *
+FROM @Results
+ORDER BY DatabaseName, ObjectType, ObjectName;
+'.
+
+
+*/
