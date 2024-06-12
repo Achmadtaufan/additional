@@ -19,6 +19,7 @@ WHERE state_desc = 'ONLINE'; -- Hanya database yang online
 -- Variable untuk menampung hasil sementara
 DECLARE @Sql NVARCHAR(MAX);
 DECLARE @ServerName SYSNAME;
+DECLARE @HasAccess BIT;
 
 -- Membuka cursor database
 OPEN db_cursor;
@@ -26,36 +27,43 @@ FETCH NEXT FROM db_cursor INTO @DatabaseName;
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    -- Untuk setiap linked server
-    DECLARE ls_cursor CURSOR FOR
-    SELECT ServerName
-    FROM @LinkedServers;
+    -- Memeriksa apakah user memiliki akses ke database
+    SET @Sql = N'USE [' + @DatabaseName + ']; SELECT @HasAccess = ISNULL(has_dbaccess(''' + @DatabaseName + '''), 0);';
+    EXEC sp_executesql @Sql, N'@HasAccess BIT OUTPUT', @HasAccess OUTPUT;
 
-    OPEN ls_cursor;
-    FETCH NEXT FROM ls_cursor INTO @ServerName;
-
-    WHILE @@FETCH_STATUS = 0
+    IF @HasAccess = 1
     BEGIN
-        -- Mencari linked server di dalam SP, View, dan Function
-        SET @Sql = N'
-        USE [' + @DatabaseName + '];
+        -- Untuk setiap linked server
+        DECLARE ls_cursor CURSOR FOR
+        SELECT ServerName
+        FROM @LinkedServers;
 
-        SELECT DISTINCT
-            ''' + @DatabaseName + ''' AS DatabaseName,
-            o.name AS ObjectName,
-            o.type_desc AS ObjectType
-        FROM sys.sql_modules m
-        INNER JOIN sys.objects o ON m.object_id = o.object_id
-        WHERE m.definition LIKE ''%' + @ServerName + '%'';';
-
-        -- Menjalankan query dinamis
-        EXEC sp_executesql @Sql;
-
+        OPEN ls_cursor;
         FETCH NEXT FROM ls_cursor INTO @ServerName;
-    END;
 
-    CLOSE ls_cursor;
-    DEALLOCATE ls_cursor;
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            -- Mencari linked server di dalam SP, View, dan Function
+            SET @Sql = N'
+            USE [' + @DatabaseName + '];
+
+            SELECT DISTINCT
+                ''' + @DatabaseName + ''' AS DatabaseName,
+                o.name AS ObjectName,
+                o.type_desc AS ObjectType
+            FROM sys.sql_modules m
+            INNER JOIN sys.objects o ON m.object_id = o.object_id
+            WHERE m.definition LIKE ''%' + @ServerName + '%'';';
+
+            -- Menjalankan query dinamis
+            EXEC sp_executesql @Sql;
+
+            FETCH NEXT FROM ls_cursor INTO @ServerName;
+        END;
+
+        CLOSE ls_cursor;
+        DEALLOCATE ls_cursor;
+    END
 
     FETCH NEXT FROM db_cursor INTO @DatabaseName;
 END;
