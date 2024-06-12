@@ -64,10 +64,10 @@ BEGIN
                 o.name AS ObjectName
             FROM sys.sql_modules m
             INNER JOIN sys.objects o ON m.object_id = o.object_id
-            WHERE m.definition LIKE ''%' + @ServerName + '%'';';
+            WHERE m.definition LIKE ''%['' + @ServerName + '']%'' OR m.definition LIKE ''%' + @ServerName + '%'';';
 
             -- Menjalankan query dinamis
-            EXEC sp_executesql @Sql;
+            EXEC sp_executesql @Sql, N'@ServerName SYSNAME', @ServerName;
 
             FETCH NEXT FROM ls_cursor INTO @ServerName;
         END;
