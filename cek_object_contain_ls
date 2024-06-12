@@ -20,6 +20,11 @@ WHERE state_desc = 'ONLINE'; -- Hanya database yang online
 DECLARE @Sql NVARCHAR(MAX);
 DECLARE @ServerName SYSNAME;
 DECLARE @UserToImpersonate SYSNAME = 'svc_dwh';
+DECLARE @Results TABLE (
+    DatabaseName SYSNAME,
+    ObjectType NVARCHAR(60),
+    ObjectName SYSNAME
+);
 
 -- Membuka cursor database
 OPEN db_cursor;
@@ -52,10 +57,11 @@ BEGIN
             EXECUTE AS USER = ''' + @UserToImpersonate + ''';
             USE [' + @DatabaseName + '];
 
+            INSERT INTO @Results (DatabaseName, ObjectType, ObjectName)
             SELECT DISTINCT
                 ''' + @DatabaseName + ''' AS DatabaseName,
-                o.name AS ObjectName,
-                o.type_desc AS ObjectType
+                o.type_desc AS ObjectType,
+                o.name AS ObjectName
             FROM sys.sql_modules m
             INNER JOIN sys.objects o ON m.object_id = o.object_id
             WHERE m.definition LIKE ''%' + @ServerName + '%'';';
@@ -79,3 +85,8 @@ END;
 
 CLOSE db_cursor;
 DEALLOCATE db_cursor;
+
+-- Menampilkan hasil
+SELECT *
+FROM @Results
+ORDER BY DatabaseName, ObjectType, ObjectName;
