@@ -19,7 +19,7 @@ WHERE state_desc = 'ONLINE'; -- Hanya database yang online
 -- Variable untuk menampung hasil sementara
 DECLARE @Sql NVARCHAR(MAX);
 DECLARE @ServerName SYSNAME;
-DECLARE @HasAccess BIT;
+DECLARE @UserToImpersonate SYSNAME = 'svc_dwh';
 
 -- Membuka cursor database
 OPEN db_cursor;
@@ -27,12 +27,16 @@ FETCH NEXT FROM db_cursor INTO @DatabaseName;
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    -- Memeriksa apakah user memiliki akses ke database
-    SET @Sql = N'USE [' + @DatabaseName + ']; SELECT @HasAccess = ISNULL(has_dbaccess(''' + @DatabaseName + '''), 0);';
-    EXEC sp_executesql @Sql, N'@HasAccess BIT OUTPUT', @HasAccess OUTPUT;
+    BEGIN TRY
+        -- Mengubah konteks keamanan ke pengguna yang diimpersonasi
+        SET @Sql = N'
+        EXECUTE AS USER = ''' + @UserToImpersonate + ''';
+        USE [' + @DatabaseName + '];
 
-    IF @HasAccess = 1
-    BEGIN
+        SELECT ''' + @DatabaseName + ''' AS DatabaseName;';
+        
+        EXEC sp_executesql @Sql;
+
         -- Untuk setiap linked server
         DECLARE ls_cursor CURSOR FOR
         SELECT ServerName
@@ -45,6 +49,7 @@ BEGIN
         BEGIN
             -- Mencari linked server di dalam SP, View, dan Function
             SET @Sql = N'
+            EXECUTE AS USER = ''' + @UserToImpersonate + ''';
             USE [' + @DatabaseName + '];
 
             SELECT DISTINCT
@@ -63,7 +68,11 @@ BEGIN
 
         CLOSE ls_cursor;
         DEALLOCATE ls_cursor;
-    END
+    END TRY
+    BEGIN CATCH
+        -- Menangani kesalahan jika tidak dapat mengakses database
+        PRINT 'Cannot access database: ' + @DatabaseName;
+    END CATCH;
 
     FETCH NEXT FROM db_cursor INTO @DatabaseName;
 END;
