@@ -1,0 +1,50 @@
+-- Membuat tabel owbmaster
+CREATE TABLE owbmaster (
+    taskid INT,
+    nopol NVARCHAR(50),
+    status NVARCHAR(50),
+    remarks NVARCHAR(50)
+);
+
+-- Insert contoh data
+INSERT INTO owbmaster (taskid, nopol, status)
+VALUES 
+(1, '12345', 'verified'),
+(2, '12345', 'pending'),
+(3, '12345', 'waiting'),
+(4, '12345', 'qc'),
+(5, '12345', 'postqc'),
+(6, '54321', 'verified'),
+(7, '54321', 'starting'),
+(8, '54321', 'succeed'),
+(9, '54321', 'deliver'),
+(10, '54321', 'done');
+
+-- Menggunakan CTE untuk menentukan apakah nopol pernah memiliki status 'pending'
+WITH CTE_Remarks AS (
+    SELECT DISTINCT
+        nopol,
+        CASE 
+            WHEN EXISTS (SELECT 1 FROM owbmaster AS o2 WHERE o2.nopol = o1.nopol AND o2.status = 'pending') THEN 'nonstp'
+            ELSE NULL
+        END AS remarks
+    FROM owbmaster AS o1
+),
+-- Menggunakan CTE untuk mendapatkan taskid maksimal dengan kondisi status tidak termasuk 'postqc' dan 'qc'
+CTE_MaxTaskID AS (
+    SELECT 
+        nopol, 
+        MAX(taskid) AS MaxTaskID
+    FROM owbmaster
+    WHERE status NOT IN ('postqc', 'qc')
+    GROUP BY nopol
+)
+-- Select final dengan inner join untuk mendapatkan hasil yang diinginkan
+SELECT 
+    o.taskid,
+    o.nopol,
+    o.status,
+    r.remarks
+FROM owbmaster AS o
+INNER JOIN CTE_MaxTaskID AS m ON o.taskid = m.MaxTaskID
+LEFT JOIN CTE_Remarks AS r ON o.nopol = r.nopol;
