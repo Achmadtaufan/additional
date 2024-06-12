@@ -64,17 +64,7 @@ BEGIN
                 o.name AS ObjectName
             FROM sys.sql_modules m
             INNER JOIN sys.objects o ON m.object_id = o.object_id
-            WHERE m.definition LIKE ''%['' + @ServerName + '']%''
-               OR m.definition LIKE ''%['' + @ServerName + '.]%''
-               OR m.definition LIKE ''%'' + @ServerName + ''%''
-               OR m.definition LIKE ''%['' + @ServerName + ']%''
-               OR m.definition LIKE ''%['' + @ServerName + '.]%''
-               OR m.definition LIKE ''%['' + @ServerName + ']%''
-               OR m.definition LIKE ''%' + @ServerName + '.%''
-               OR m.definition LIKE ''%[' + @ServerName + ']%''
-               OR m.definition LIKE ''%[' + @ServerName + '.%''
-               OR m.definition LIKE ''%[' + @ServerName + '.]%''
-               OR m.definition LIKE ''%' + @ServerName + '%'';';
+            WHERE CHARINDEX(@ServerName, m.definition) > 0;';
 
             -- Menjalankan query dinamis
             EXEC sp_executesql @Sql, N'@ServerName SYSNAME', @ServerName;
