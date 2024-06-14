@@ -5,8 +5,9 @@ SET @SQL = '';
 
 -- Kumpulkan nama semua database kecuali sistem database
 SELECT @SQL = @SQL + '
+USE [' + name + '];
+
 BEGIN TRY
-    USE [' + name + '];
     EXECUTE AS LOGIN = ''' + @UserName + ''';
 
     -- Pastikan user memiliki akses ke database
@@ -19,6 +20,7 @@ BEGIN TRY
                 FROM sys.servers
                 WHERE is_linked = 1
             )
+
             SELECT 
                 DB_NAME() AS DatabaseName,
                 o.name AS ObjectName,
@@ -45,7 +47,7 @@ BEGIN TRY
     BEGIN
         PRINT ''Database [' + DB_NAME() + '] access denied for user ' + @UserName + '.';
     END
-    
+
     REVERT;
 END TRY
 BEGIN CATCH
