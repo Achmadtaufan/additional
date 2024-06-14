@@ -19,7 +19,6 @@ BEGIN TRY
                 FROM sys.servers
                 WHERE is_linked = 1
             )
-
             SELECT 
                 DB_NAME() AS DatabaseName,
                 o.name AS ObjectName,
@@ -51,6 +50,7 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     PRINT ''Database [' + DB_NAME() + '] access denied for user ' + @UserName + '. Error: '' + ERROR_MESSAGE();
+    REVERT;
 END CATCH;
 ' 
 FROM sys.databases
