@@ -53,3 +53,12 @@ WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb');
 
 -- Eksekusi SQL dinamis
 EXEC sp_executesql @SQL;
+
+Msg 102, Level 15, State 1, Line 49
+Incorrect syntax near ';'.
+Msg 105, Level 15, State 1, Line 52
+Unclosed quotation mark after the character string ');
+
+-- Eksekusi SQL dinamis
+EXEC sp_executesql @SQL;
+'.
