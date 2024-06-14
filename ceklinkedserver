@@ -8,7 +8,7 @@ SELECT @SQL = @SQL + '
 BEGIN TRY
     USE [' + name + '];
     EXECUTE AS LOGIN = ''' + @UserName + ''';
-    
+
     -- Pastikan user memiliki akses ke database
     IF HAS_DBACCESS(DB_NAME()) = 1
     BEGIN
@@ -39,18 +39,18 @@ BEGIN TRY
         END
         ELSE
         BEGIN
-            PRINT ''User ' + @UserName + ' does not exist in database [' + name + '].'';
+            PRINT ''User ' + @UserName + ' does not exist in database [' + DB_NAME() + '].'';
         END
     END
     ELSE
     BEGIN
-        PRINT ''Database [' + name + '] access denied for user ' + @UserName + '.';
+        PRINT ''Database [' + DB_NAME() + '] access denied for user ' + @UserName + '.';
     END
     
     REVERT;
 END TRY
 BEGIN CATCH
-    PRINT ''Database [' + name + '] access denied for user ' + @UserName + '. Error: '' + ERROR_MESSAGE();
+    PRINT ''Database [' + DB_NAME() + '] access denied for user ' + @UserName + '. Error: '' + ERROR_MESSAGE();
 END CATCH;
 ' 
 FROM sys.databases
@@ -58,15 +58,3 @@ WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb');
 
 -- Eksekusi SQL dinamis
 EXEC sp_executesql @SQL;
-
-
-Msg 156, Level 15, State 1, Line 50
-Incorrect syntax near the keyword 'REVERT'.
-Msg 102, Level 15, State 1, Line 51
-Incorrect syntax near 'TRY'.
-Msg 105, Level 15, State 1, Line 57
-Unclosed quotation mark after the character string ');
-
--- Eksekusi SQL dinamis
-EXEC sp_executesql @SQL;
-'.
