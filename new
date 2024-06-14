@@ -1,24 +1,39 @@
 -- Bagian 1: Menampung nama link server dalam tabel CTE
 WITH LinkServerCTE AS (
-    SELECT name AS LinkServerName
+    SELECT DISTINCT name AS LinkServerName
     FROM sys.servers
     WHERE is_linked = 1
+    AND name IN ('dms', 'sdm', 'mds') -- Ubah sesuai dengan nama-nama link server yang Anda cari
+),
+
+-- Bagian 2: Query untuk mencari objek dengan nama link server yang cocok
+ObjectsWithMatchingLinkServer AS (
+    SELECT 
+        o.name AS ObjectName,
+        o.type_desc AS ObjectType,
+        m.definition AS ObjectDefinition,
+        ls.LinkServerName,
+        COUNT(ls.LinkServerName) OVER (PARTITION BY o.name) AS LinkServerCount
+    FROM 
+        sys.sql_modules AS m
+        INNER JOIN sys.objects AS o ON m.object_id = o.object_id
+        CROSS JOIN LinkServerCTE ls
+    WHERE 
+        (m.definition LIKE '%' + ls.LinkServerName + '%' OR
+         m.definition LIKE '%[' + ls.LinkServerName + ']%')
+    AND o.type IN ('V', 'P', 'FN', 'IF', 'TF') -- Hanya view, procedure, function
 )
 
--- Bagian 2: Mengecek apakah dalam skrip view, procedure, atau function terdapat kata yang merupakan nama dari link server yang telah ditampung di CTE
-SELECT 
-    o.name AS ObjectName,
-    o.type_desc AS ObjectType,
-    m.definition AS ObjectDefinition,
-    ls.LinkServerName
+-- Bagian 3: Memilih hasil yang memiliki hanya satu nama link server yang cocok dalam definisi mereka
+SELECT DISTINCT
+    ObjectName,
+    ObjectType,
+    ObjectDefinition,
+    LinkServerName
 FROM 
-    sys.sql_modules AS m
-    INNER JOIN sys.objects AS o ON m.object_id = o.object_id
-    INNER JOIN LinkServerCTE ls ON 
-        m.definition LIKE '%' + ls.LinkServerName + '%' OR
-        m.definition LIKE '%[' + ls.LinkServerName + ']%'
-WHERE 
-    o.type IN ('V', 'P', 'FN', 'IF', 'TF') -- Hanya view, procedure, function
+    ObjectsWithMatchingLinkServer
+WHERE
+    LinkServerCount = 1 -- Hanya ambil yang memiliki tepat satu nama link server yang cocok
 ORDER BY 
-    o.type_desc,
-    o.name;
+    ObjectType,
+    ObjectName;
