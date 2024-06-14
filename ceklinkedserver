@@ -1,23 +1,39 @@
--- Bagian 1: Menampung nama link server dalam tabel CTE
-WITH LinkServerCTE AS (
-    SELECT name AS LinkServerName
-    FROM sys.servers
-    WHERE is_linked = 1
-)
+DECLARE @UserName NVARCHAR(128) = 'svc_dwh';
+DECLARE @SQL NVARCHAR(MAX);
 
--- Bagian 2: Mengecek apakah dalam skrip view, procedure, atau function terdapat kata yang merupakan nama dari link server yang telah ditampung di CTE
-SELECT 
-    o.name AS ObjectName,
-    o.type_desc AS ObjectType,
-    m.definition AS ObjectDefinition,
-    ls.LinkServerName
-FROM 
-    sys.sql_modules AS m
-    INNER JOIN sys.objects AS o ON m.object_id = o.object_id
-    CROSS JOIN LinkServerCTE ls
-WHERE 
-    m.definition LIKE '%' + ls.LinkServerName + '%' OR
-    m.definition LIKE '%[' + ls.LinkServerName + ']%'
-ORDER BY 
-    o.type_desc,
-    o.name;
+SET @SQL = '';
+
+-- Kumpulkan nama semua database kecuali sistem database
+SELECT @SQL = @SQL + '
+USE [' + name + '];
+IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = ''' + @UserName + ''')
+BEGIN
+    WITH LinkServerCTE AS (
+        SELECT name AS LinkServerName
+        FROM sys.servers
+        WHERE is_linked = 1
+    )
+
+    SELECT 
+        DB_NAME() AS DatabaseName,
+        o.name AS ObjectName,
+        o.type_desc AS ObjectType,
+        m.definition AS ObjectDefinition,
+        ls.LinkServerName
+    FROM 
+        sys.sql_modules AS m
+        INNER JOIN sys.objects AS o ON m.object_id = o.object_id
+        CROSS JOIN LinkServerCTE ls
+    WHERE 
+        m.definition LIKE ''%'' + ls.LinkServerName + ''%'' OR
+        m.definition LIKE ''%['' + ls.LinkServerName + '']%''
+    ORDER BY 
+        o.type_desc,
+        o.name;
+END
+' 
+FROM sys.databases
+WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb');
+
+-- Eksekusi SQL dinamis
+EXEC sp_executesql @SQL;
