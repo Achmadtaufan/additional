@@ -1,0 +1,23 @@
+-- Bagian 1: Menampung nama link server dalam tabel CTE
+WITH LinkServerCTE AS (
+    SELECT name AS LinkServerName
+    FROM sys.servers
+    WHERE is_linked = 1
+)
+
+-- Bagian 2: Mengecek apakah dalam skrip view, procedure, atau function terdapat kata yang merupakan nama dari link server yang telah ditampung di CTE
+SELECT 
+    o.name AS ObjectName,
+    o.type_desc AS ObjectType,
+    m.definition AS ObjectDefinition,
+    ls.LinkServerName
+FROM 
+    sys.sql_modules AS m
+    INNER JOIN sys.objects AS o ON m.object_id = o.object_id
+    CROSS JOIN LinkServerCTE ls
+WHERE 
+    m.definition LIKE '%' + ls.LinkServerName + '%' OR
+    m.definition LIKE '%[' + ls.LinkServerName + ']%'
+ORDER BY 
+    o.type_desc,
+    o.name;
