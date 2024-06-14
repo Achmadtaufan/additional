@@ -14,10 +14,11 @@ SELECT
 FROM 
     sys.sql_modules AS m
     INNER JOIN sys.objects AS o ON m.object_id = o.object_id
-    CROSS JOIN LinkServerCTE ls
+    INNER JOIN LinkServerCTE ls ON 
+        m.definition LIKE '%' + ls.LinkServerName + '%' OR
+        m.definition LIKE '%[' + ls.LinkServerName + ']%'
 WHERE 
-    m.definition LIKE '%' + ls.LinkServerName + '%' OR
-    m.definition LIKE '%[' + ls.LinkServerName + ']%'
+    o.type IN ('V', 'P', 'FN', 'IF', 'TF') -- Hanya view, procedure, function
 ORDER BY 
     o.type_desc,
     o.name;
