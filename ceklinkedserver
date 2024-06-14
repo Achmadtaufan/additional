@@ -7,36 +7,47 @@ SET @SQL = '';
 SELECT @SQL = @SQL + '
 BEGIN TRY
     USE [' + name + '];
-
-    IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = ''' + @UserName + ''')
+    EXECUTE AS LOGIN = ''' + @UserName + ''';
+    
+    -- Pastikan user memiliki akses ke database
+    IF HAS_DBACCESS(DB_NAME()) = 1
     BEGIN
-        WITH LinkServerCTE AS (
-            SELECT name AS LinkServerName
-            FROM sys.servers
-            WHERE is_linked = 1
-        )
+        IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = ''' + @UserName + ''')
+        BEGIN
+            WITH LinkServerCTE AS (
+                SELECT name AS LinkServerName
+                FROM sys.servers
+                WHERE is_linked = 1
+            )
 
-        SELECT 
-            DB_NAME() AS DatabaseName,
-            o.name AS ObjectName,
-            o.type_desc AS ObjectType,
-            m.definition AS ObjectDefinition,
-            ls.LinkServerName
-        FROM 
-            sys.sql_modules AS m
-            INNER JOIN sys.objects AS o ON m.object_id = o.object_id
-            CROSS JOIN LinkServerCTE ls
-        WHERE 
-            m.definition LIKE ''%'' + ls.LinkServerName + ''%'' OR
-            m.definition LIKE ''%['' + ls.LinkServerName + '']%''
-        ORDER BY 
-            o.type_desc,
-            o.name;
+            SELECT 
+                DB_NAME() AS DatabaseName,
+                o.name AS ObjectName,
+                o.type_desc AS ObjectType,
+                m.definition AS ObjectDefinition,
+                ls.LinkServerName
+            FROM 
+                sys.sql_modules AS m
+                INNER JOIN sys.objects AS o ON m.object_id = o.object_id
+                CROSS JOIN LinkServerCTE ls
+            WHERE 
+                m.definition LIKE ''%'' + ls.LinkServerName + ''%'' OR
+                m.definition LIKE ''%['' + ls.LinkServerName + '']%''
+            ORDER BY 
+                o.type_desc,
+                o.name;
+        END
+        ELSE
+        BEGIN
+            PRINT ''User ' + @UserName + ' does not exist in database [' + name + '].'';
+        END
     END
     ELSE
     BEGIN
-        PRINT ''User ' + @UserName + ' does not exist in database [' + name + '].'';
+        PRINT ''Database [' + name + '] access denied for user ' + @UserName + '.';
     END
+    
+    REVERT;
 END TRY
 BEGIN CATCH
     PRINT ''Database [' + name + '] access denied for user ' + @UserName + '. Error: '' + ERROR_MESSAGE();
