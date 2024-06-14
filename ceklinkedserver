@@ -50,7 +50,6 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
     PRINT ''Database [' + DB_NAME() + '] access denied for user ' + @UserName + '. Error: '' + ERROR_MESSAGE();
-    REVERT;
 END CATCH;
 ' 
 FROM sys.databases
@@ -58,16 +57,3 @@ WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb');
 
 -- Eksekusi SQL dinamis
 EXEC sp_executesql @SQL;
-
-Msg 156, Level 15, State 1, Line 49
-Incorrect syntax near the keyword 'REVERT'.
-Msg 102, Level 15, State 1, Line 50
-Incorrect syntax near 'TRY'.
-Msg 102, Level 15, State 1, Line 54
-Incorrect syntax near 'CATCH'.
-Msg 105, Level 15, State 1, Line 57
-Unclosed quotation mark after the character string ');
-
--- Eksekusi SQL dinamis
-EXEC sp_executesql @SQL;
-'.
