@@ -1,0 +1,11 @@
+SELECT 
+    j.name AS JobName,
+    s.name AS ScheduleName,
+    js.next_run_date,
+    js.next_run_time
+FROM msdb.dbo.sysjobs j
+INNER JOIN msdb.dbo.sysjobschedules js ON j.job_id = js.job_id
+INNER JOIN msdb.dbo.sysschedules s ON js.schedule_id = s.schedule_id
+WHERE 
+    js.next_run_time = 43200  -- 04.32 dihitung dalam detik (jam * 3600 + menit * 60)
+    AND s.enabled = 1;  -- pastikan schedule aktif
