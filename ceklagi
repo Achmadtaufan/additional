@@ -1,0 +1,102 @@
+-- Tabel sementara untuk menyimpan nama linked server
+CREATE TABLE #ObjectLinkServer (
+    LinkedServerName NVARCHAR(100)
+);
+
+-- Tabel sementara untuk menyimpan hasil pencarian
+CREATE TABLE #Results (
+    DatabaseName NVARCHAR(100),
+    ObjectType NVARCHAR(50),
+    ObjectName NVARCHAR(100),
+    ObjectDefinition NVARCHAR(MAX)
+);
+
+-- Tabel sementara untuk menyimpan hasil ekstraksi nama linked server
+CREATE TABLE #LinkedServers (
+    DatabaseName NVARCHAR(100),
+    ObjectType NVARCHAR(50),
+    ObjectName NVARCHAR(100),
+    LinkedServerName NVARCHAR(100)
+);
+
+-- Fungsi untuk mengisi tabel sementara dengan nama linked server
+INSERT INTO #ObjectLinkServer (LinkedServerName)
+SELECT name
+FROM sys.servers
+WHERE is_linked = 1;
+
+-- Fungsi untuk mencari dan menyimpan hasil pencarian
+CREATE PROCEDURE dbo.SearchObjectsWithLinkedServer
+AS
+BEGIN
+    DECLARE @DatabaseName NVARCHAR(100);
+    DECLARE @SQL NVARCHAR(MAX);
+    
+    -- Cursor untuk menjelajahi setiap database
+    DECLARE db_cursor CURSOR FOR
+    SELECT name
+    FROM sys.databases
+    WHERE state_desc = 'ONLINE' AND name NOT IN ('master', 'tempdb', 'model', 'msdb');
+    
+    OPEN db_cursor;
+    
+    FETCH NEXT FROM db_cursor INTO @DatabaseName;
+    
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        -- SQL untuk mencari objek yang mengandung linked server
+        SET @SQL = '
+        USE [' + @DatabaseName + '];
+
+        INSERT INTO #Results (DatabaseName, ObjectType, ObjectName, ObjectDefinition)
+        SELECT 
+            ''' + @DatabaseName + ''' AS DatabaseName,
+            o.type_desc AS ObjectType,
+            o.name AS ObjectName,
+            OBJECT_DEFINITION(o.object_id) AS ObjectDefinition
+        FROM sys.objects o
+        WHERE o.type IN (''V'', ''FN'', ''IF'', ''TF'', ''P'')
+          AND OBJECT_DEFINITION(o.object_id) LIKE ''%[' + (SELECT STRING_AGG(LinkedServerName, '], [') FROM #ObjectLinkServer) + ']%'';
+          
+        EXEC sp_executesql @SQL;
+        
+        FETCH NEXT FROM db_cursor INTO @DatabaseName;
+        ';
+        
+        EXEC sp_executesql @SQL;
+    END
+    
+    CLOSE db_cursor;
+    DEALLOCATE db_cursor;
+END;
+GO
+
+-- Eksekusi prosedur pencarian
+EXEC dbo.SearchObjectsWithLinkedServer;
+
+-- Proses ekstraksi nama linked server
+INSERT INTO #LinkedServers (DatabaseName, ObjectType, ObjectName, LinkedServerName)
+SELECT
+    DatabaseName,
+    ObjectType,
+    ObjectName,
+    SUBSTRING(ObjectDefinition, CHARINDEX('[', ObjectDefinition) + 1, CHARINDEX(']', ObjectDefinition) - CHARINDEX('[', ObjectDefinition) - 1) AS LinkedServerName
+FROM #Results;
+
+-- Membersihkan tabel-tabel sementara
+DROP TABLE #ObjectLinkServer;
+DROP TABLE #Results;
+
+-- Menghapus duplikat hasil jika diperlukan
+WITH CTE AS (
+    SELECT 
+        DatabaseName,
+        ObjectType,
+        ObjectName,
+        LinkedServerName,
+        ROW_NUMBER() OVER (PARTITION BY DatabaseName, ObjectType, ObjectName ORDER BY LinkedServerName) AS RN
+    FROM #LinkedServers
+)
+SELECT DatabaseName, ObjectType, ObjectName, LinkedServerName
+FROM CTE
+WHERE RN = 1; -- Hanya mengambil satu nama linked server per objek
