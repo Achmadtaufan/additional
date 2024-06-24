@@ -44,7 +44,11 @@ BEGIN
         OBJECT_DEFINITION(o.object_id) AS ObjectDefinition
     FROM sys.objects o
     WHERE o.type IN (''V'', ''FN'', ''IF'', ''TF'', ''P'')
-      AND OBJECT_DEFINITION(o.object_id) LIKE ''%[' + (SELECT STRING_AGG(LinkedServerName, '], [') FROM #ObjectLinkServer) + ']%'';
+      AND (
+            ' + STUFF((SELECT ' OR OBJECT_DEFINITION(o.object_id) LIKE ''%[' + LinkedServerName + ']%'''
+                       FROM #ObjectLinkServer
+                       FOR XML PATH('')), 1, 4, '') + '
+          );
       
     EXEC sp_executesql @SQL;
     
