@@ -34,31 +34,41 @@ FETCH NEXT FROM db_cursor INTO @DatabaseName;
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    -- SQL untuk mencari objek yang mengandung linked server
-    SET @SQL = '
-    USE [' + @DatabaseName + '];
+    -- Cek apakah username memiliki akses ke database
+    IF EXISTS (
+        SELECT 1
+        FROM sys.database_principals dp
+        JOIN sys.database_permissions perm ON dp.principal_id = perm.grantee_principal_id
+        WHERE dp.name = @Username
+          AND perm.state_desc = 'GRANT'
+          AND perm.permission_name = 'CONNECT'
+          AND perm.class_desc = 'DATABASE'
+          AND perm.major_id = DB_ID(@DatabaseName)
+    )
+    BEGIN
+        -- SQL untuk mencari objek yang mengandung linked server
+        SET @SQL = '
+        USE [' + @DatabaseName + '];
 
-    INSERT INTO #Results (DatabaseName, ObjectType, ObjectName, ObjectDefinition)
-    SELECT 
-        ''' + @DatabaseName + ''' AS DatabaseName,
-        o.type_desc AS ObjectType,
-        o.name AS ObjectName,
-        OBJECT_DEFINITION(o.object_id) AS ObjectDefinition
-    FROM sys.objects o
-    WHERE o.type IN (''V'', ''FN'', ''IF'', ''TF'', ''P'')
-      AND (
-            ' + STUFF((SELECT ' OR OBJECT_DEFINITION(o.object_id) LIKE ''%[' + LinkedServerName + ']%'''
-                       FROM #ObjectLinkServer
-                       FOR XML PATH('')), 1, 4, '') + '
-          )
-      AND OBJECT_DEFINITION(o.object_id) LIKE ''%' + QUOTENAME(@Username) + '%''; -- Mencari referensi ke username yang diinginkan
-      
-    EXEC sp_executesql @SQL;
+        INSERT INTO #Results (DatabaseName, ObjectType, ObjectName, ObjectDefinition)
+        SELECT 
+            ''' + @DatabaseName + ''' AS DatabaseName,
+            o.type_desc AS ObjectType,
+            o.name AS ObjectName,
+            OBJECT_DEFINITION(o.object_id) AS ObjectDefinition
+        FROM sys.objects o
+        WHERE o.type IN (''V'', ''FN'', ''IF'', ''TF'', ''P'')
+          AND (
+                ' + STUFF((SELECT ' OR OBJECT_DEFINITION(o.object_id) LIKE ''%[' + LinkedServerName + ']%'''
+                           FROM #ObjectLinkServer
+                           FOR XML PATH('')), 1, 4, '') + '
+              )
+          AND OBJECT_DEFINITION(o.object_id) LIKE ''%' + QUOTENAME(@Username) + '%''; -- Mencari referensi ke username yang diinginkan
+          
+        EXEC sp_executesql @SQL;
+    END
     
     FETCH NEXT FROM db_cursor INTO @DatabaseName;
-    ';
-
-    EXEC sp_executesql @SQL;
 END
 
 CLOSE db_cursor;
