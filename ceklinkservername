@@ -24,7 +24,7 @@ INSERT INTO #LinkedServerReferences (ObjectType, ObjectName, LinkedServerName)
 SELECT 'VIEW', v.name, ls.LinkedServerName
 FROM sys.views v
 JOIN sys.sql_modules m ON v.object_id = m.object_id
-JOIN #LinkedServers ls ON m.definition LIKE '%[' + ls.LinkedServerName + ']%'
+JOIN #LinkedServers ls ON m.definition LIKE '%[' + QUOTENAME(ls.LinkedServerName, ']') + ']%'
 WHERE v.type = 'V'
 AND DB_NAME(DB_ID()) = @DatabaseName;
 
@@ -33,7 +33,7 @@ INSERT INTO #LinkedServerReferences (ObjectType, ObjectName, LinkedServerName)
 SELECT 'PROCEDURE', p.name, ls.LinkedServerName
 FROM sys.procedures p
 JOIN sys.sql_modules m ON p.object_id = m.object_id
-JOIN #LinkedServers ls ON m.definition LIKE '%[' + ls.LinkedServerName + ']%'
+JOIN #LinkedServers ls ON m.definition LIKE '%[' + QUOTENAME(ls.LinkedServerName, ']') + ']%'
 WHERE DB_NAME(DB_ID()) = @DatabaseName;
 
 -- 7. Cari linked server name dalam function
@@ -41,7 +41,7 @@ INSERT INTO #LinkedServerReferences (ObjectType, ObjectName, LinkedServerName)
 SELECT 'FUNCTION', f.name, ls.LinkedServerName
 FROM sys.objects f
 JOIN sys.sql_modules m ON f.object_id = m.object_id
-JOIN #LinkedServers ls ON m.definition LIKE '%[' + ls.LinkedServerName + ']%'
+JOIN #LinkedServers ls ON m.definition LIKE '%[' + QUOTENAME(ls.LinkedServerName, ']') + ']%'
 WHERE f.type IN ('FN', 'IF', 'TF')
 AND DB_NAME(DB_ID()) = @DatabaseName;
 
