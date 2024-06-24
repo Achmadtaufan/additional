@@ -32,14 +32,14 @@ BEGIN
     -- Misalnya, menjalankan query di linked server atau memeriksa objek tertentu
 
     -- Contoh sederhana: memeriksa tabel sys.syscomments di server utama untuk referensi ke linked server
-    DECLARE @query NVARCHAR(MAX) = N'SELECT a.text, b.name, b.type_desc 
+    DECLARE @query NVARCHAR(MAX) = N'SELECT DISTINCT b.name, b.type_desc, @LinkedServerName
                                       FROM sys.syscomments a 
                                       JOIN sys.objects b 
                                       ON a.id = b.object_id 
-                                      WHERE a.text LIKE ''%' + @LinkedServerName + '%''';
+                                      WHERE CHARINDEX(@LinkedServerName,a.text) > 1';
     
     -- Eksekusi query dinamis
-    EXEC sp_executesql @query;
+    EXEC sp_executesql @query, N'@LinkedServerName NVARCHAR(MAX)', @LinkedServerName = @LinkedServerName;
 
     -- Fetch berikutnya dari cursor
     FETCH NEXT FROM LinkedServerCursor INTO @LinkedServerName;
