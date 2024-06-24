@@ -1,0 +1,37 @@
+-- 1. Buat tabel sementara untuk menyimpan nama-nama linked server
+CREATE TABLE #LinkedServers (
+    LinkedServerName NVARCHAR(128)
+);
+
+-- 2. Ambil nama-nama linked server yang ada di SQL Server
+INSERT INTO #LinkedServers (LinkedServerName)
+SELECT name
+FROM sys.servers
+WHERE is_linked = 1;
+
+-- 3. Tentukan variabel database yang ingin dicek
+DECLARE @DatabaseName NVARCHAR(128) = 'fwd_microservice'; -- Ganti dengan nama database yang ingin Anda cek
+
+-- 4. Buat tabel sementara untuk menyimpan hasil pencarian
+CREATE TABLE #LinkedServerReferences (
+    ObjectType NVARCHAR(60),
+    ObjectName NVARCHAR(128),
+    LinkedServerName NVARCHAR(128)
+);
+
+-- 5. Cari linked server name dalam stored procedure
+INSERT INTO #LinkedServerReferences (ObjectType, ObjectName, LinkedServerName)
+SELECT 'PROCEDURE', p.name, ls.LinkedServerName
+FROM sys.procedures p
+JOIN sys.sql_modules m ON p.object_id = m.object_id
+CROSS JOIN #LinkedServers ls
+WHERE m.definition LIKE '%[' + ls.LinkedServerName + ']%' ESCAPE '\'
+AND DB_NAME(p.database_id) = @DatabaseName;
+
+-- 6. Tampilkan hasil pengecekan
+SELECT *
+FROM #LinkedServerReferences;
+
+-- 7. Hapus tabel sementara jika sudah tidak diperlukan
+DROP TABLE #LinkedServers;
+DROP TABLE #LinkedServerReferences;
