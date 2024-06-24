@@ -1,0 +1,19 @@
+CREATE TABLE #LinkedServers (
+    LinkedServerName NVARCHAR(128)
+);
+
+-- 2. Ambil nama-nama linked server yang ada di SQL Server
+INSERT INTO #LinkedServers (LinkedServerName)
+SELECT name
+FROM sys.servers
+WHERE is_linked = 1;
+
+select * from #LinkedServers
+
+
+SELECT a.text,b.name,b.type_desc FROM sys.syscomments a join sys.objects b on a.id = b.object_id where text like '%dmsprod%'
+
+
+--select top 1 * from sys.objects
+
+DROP TABLE #LinkedServers;
