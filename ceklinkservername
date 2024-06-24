@@ -1,0 +1,42 @@
+-- 1. Tentukan variabel database yang ingin dicek
+DECLARE @DatabaseName NVARCHAR(128) = 'NamaDatabase'; -- Ganti NamaDatabase dengan nama database yang ingin Anda cek
+
+-- 2. Buat tabel sementara untuk menyimpan hasil pencarian
+CREATE TABLE #LinkedServerReferences (
+    ObjectType NVARCHAR(60),
+    ObjectName NVARCHAR(128),
+    LinkedServerName NVARCHAR(128)
+);
+
+-- 3. Cari linked server name dalam view
+INSERT INTO #LinkedServerReferences (ObjectType, ObjectName, LinkedServerName)
+SELECT 'VIEW', v.name, ls.name
+FROM sys.views v
+JOIN sys.sql_modules m ON v.object_id = m.object_id
+JOIN sys.servers ls ON CHARINDEX(ls.name, m.definition) > 0
+WHERE v.type = 'V'
+AND DB_NAME(DB_ID()) = @DatabaseName; -- Hanya di database yang ditentukan
+
+-- 4. Cari linked server name dalam stored procedure
+INSERT INTO #LinkedServerReferences (ObjectType, ObjectName, LinkedServerName)
+SELECT 'PROCEDURE', p.name, ls.name
+FROM sys.procedures p
+JOIN sys.sql_modules m ON p.object_id = m.object_id
+JOIN sys.servers ls ON CHARINDEX(ls.name, m.definition) > 0
+WHERE DB_NAME(DB_ID()) = @DatabaseName; -- Hanya di database yang ditentukan
+
+-- 5. Cari linked server name dalam function
+INSERT INTO #LinkedServerReferences (ObjectType, ObjectName, LinkedServerName)
+SELECT 'FUNCTION', f.name, ls.name
+FROM sys.objects f
+JOIN sys.sql_modules m ON f.object_id = m.object_id
+JOIN sys.servers ls ON CHARINDEX(ls.name, m.definition) > 0
+WHERE f.type IN ('FN', 'IF', 'TF')
+AND DB_NAME(DB_ID()) = @DatabaseName; -- Hanya di database yang ditentukan
+
+-- 6. Tampilkan hasil pengecekan
+SELECT *
+FROM #LinkedServerReferences;
+
+-- 7. Hapus tabel sementara jika sudah tidak diperlukan
+DROP TABLE #LinkedServerReferences;
