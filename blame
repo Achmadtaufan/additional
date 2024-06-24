@@ -1,0 +1,53 @@
+-- 1. Buat tabel sementara #LinkedServers
+CREATE TABLE #LinkedServers (
+    LinkedServerName NVARCHAR(128)
+);
+
+-- 2. Ambil nama-nama linked server yang ada di SQL Server
+INSERT INTO #LinkedServers (LinkedServerName)
+SELECT name
+FROM sys.servers
+WHERE is_linked = 1;
+
+-- 3. Deklarasi cursor
+DECLARE @LinkedServerName NVARCHAR(128);
+
+DECLARE LinkedServerCursor CURSOR FOR
+SELECT LinkedServerName
+FROM #LinkedServers;
+
+-- 4. Buka cursor
+OPEN LinkedServerCursor;
+
+-- 5. Fetch pertama dari cursor
+FETCH NEXT FROM LinkedServerCursor INTO @LinkedServerName;
+
+-- 6. Loop melalui baris-baris cursor
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    -- Script untuk mengecek nama linked server
+    PRINT 'Processing linked server: ' + @LinkedServerName;
+
+    -- Di sini Anda bisa menambahkan logika untuk mengecek sesuatu pada linked server
+    -- Misalnya, menjalankan query di linked server atau memeriksa objek tertentu
+
+    -- Contoh sederhana: memeriksa tabel sys.syscomments di server utama untuk referensi ke linked server
+    DECLARE @query NVARCHAR(MAX) = N'SELECT a.text, b.name, b.type_desc 
+                                      FROM sys.syscomments a 
+                                      JOIN sys.objects b 
+                                      ON a.id = b.object_id 
+                                      WHERE a.text LIKE ''%' + @LinkedServerName + '%''';
+    
+    -- Eksekusi query dinamis
+    EXEC sp_executesql @query;
+
+    -- Fetch berikutnya dari cursor
+    FETCH NEXT FROM LinkedServerCursor INTO @LinkedServerName;
+END;
+
+-- 7. Tutup dan deallocate cursor
+CLOSE LinkedServerCursor;
+DEALLOCATE LinkedServerCursor;
+
+-- 8. Hapus tabel sementara
+DROP TABLE #LinkedServers;
