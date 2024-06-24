@@ -1,0 +1,90 @@
+-- 1. Buat tabel sementara #LinkedServers
+CREATE TABLE #LinkedServers (
+    LinkedServerName NVARCHAR(128)
+);
+
+-- 2. Ambil nama-nama linked server yang ada di SQL Server
+INSERT INTO #LinkedServers (LinkedServerName)
+SELECT name
+FROM sys.servers
+WHERE is_linked = 1;
+
+-- 3. Deklarasi cursor untuk linked server
+DECLARE @LinkedServerName NVARCHAR(128);
+
+DECLARE LinkedServerCursor CURSOR FOR
+SELECT LinkedServerName
+FROM #LinkedServers;
+
+-- 4. Buka cursor untuk linked server
+OPEN LinkedServerCursor;
+
+-- 5. Fetch pertama dari cursor untuk linked server
+FETCH NEXT FROM LinkedServerCursor INTO @LinkedServerName;
+
+-- 6. Loop melalui baris-baris cursor untuk linked server
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    -- Script untuk mengecek nama linked server
+    PRINT 'Processing linked server: ' + @LinkedServerName;
+
+    -- Query untuk mencari objek di linked server
+    DECLARE @query_linked_server NVARCHAR(MAX) = N'
+        SELECT DISTINCT b.name, b.type_desc, @LinkedServerName AS LinkedServerName, NULL AS DatabaseName
+        FROM ' + QUOTENAME(@LinkedServerName) + N'.master.sys.syscomments a
+        JOIN ' + QUOTENAME(@LinkedServerName) + N'.master.sys.objects b ON a.id = b.object_id
+        WHERE CHARINDEX(@LinkedServerName, a.text) > 0';
+    
+    -- Eksekusi query dinamis untuk linked server
+    EXEC sp_executesql @query_linked_server, N'@LinkedServerName NVARCHAR(MAX)', @LinkedServerName = @LinkedServerName;
+
+    -- Fetch berikutnya dari cursor untuk linked server
+    FETCH NEXT FROM LinkedServerCursor INTO @LinkedServerName;
+END;
+
+-- Tutup cursor untuk linked server dan deallocate
+CLOSE LinkedServerCursor;
+DEALLOCATE LinkedServerCursor;
+
+-- 7. Loop melalui semua database untuk user svc_dwh
+DECLARE @DatabaseName NVARCHAR(MAX);
+DECLARE @query_database NVARCHAR(MAX);
+
+DECLARE DatabaseCursor CURSOR FOR
+SELECT name
+FROM sys.databases
+WHERE state_desc = 'ONLINE' AND name <> 'tempdb'; -- Sesuaikan kriteria pemilihan database sesuai kebutuhan
+
+OPEN DatabaseCursor;
+
+FETCH NEXT FROM DatabaseCursor INTO @DatabaseName;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    -- Script untuk mengecek di setiap database
+    PRINT 'Processing database: ' + @DatabaseName;
+
+    -- Query untuk mencari objek di database dengan username svc_dwh
+    SET @query_database = N'
+        USE ' + QUOTENAME(@DatabaseName) + ';
+        SELECT DISTINCT OBJECT_SCHEMA_NAME(object_id) + ''.'' + OBJECT_NAME(object_id) AS ObjectName,
+               ''' + @DatabaseName + ''' AS DatabaseName
+        FROM sys.objects
+        WHERE OBJECTPROPERTY(object_id, ''IsMSShipped'') = 0
+        AND OBJECTPROPERTY(object_id, ''IsTable'') = 1
+        AND OBJECTPROPERTY(object_id, ''TableHasIdentity'') = 1
+        AND USER_NAME(schema_id) = ''svc_dwh'';';
+    
+    -- Eksekusi query untuk database
+    EXEC sp_executesql @query_database;
+
+    -- Fetch database berikutnya
+    FETCH NEXT FROM DatabaseCursor INTO @DatabaseName;
+END;
+
+-- Tutup dan deallocate cursor untuk database
+CLOSE DatabaseCursor;
+DEALLOCATE DatabaseCursor;
+
+-- 8. Hapus tabel sementara
+DROP TABLE #LinkedServers;
