@@ -1,0 +1,95 @@
+
+
+CREATE TABLE #JobAffected (
+JobName VARCHAR(MAX),
+DatabaseName VARCHAR(MAX)
+)
+
+-- 1. Buat tabel sementara #DatabaseName
+CREATE TABLE #DatabaseName (
+    DatabaseName NVARCHAR(Max)
+);
+
+-- 2. Ambil nama-nama linked server yang ada di SQL Server
+INSERT INTO #DatabaseName VALUES ('PRD_Activiti')
+INSERT INTO #DatabaseName VALUES ('PRD_APPSCRUTINY')
+INSERT INTO #DatabaseName VALUES ('PRD_DSCAPTURE')
+INSERT INTO #DatabaseName VALUES ('PRD_DSCONFIG')
+INSERT INTO #DatabaseName VALUES ('PRD_DSCPDB')
+INSERT INTO #DatabaseName VALUES ('PRD_DSRMCONFIG')
+INSERT INTO #DatabaseName VALUES ('PRD_FWDeService')
+INSERT INTO #DatabaseName VALUES ('PRD_INITIATOR')
+INSERT INTO #DatabaseName VALUES ('PRD_NBAPPSDB')
+INSERT INTO #DatabaseName VALUES ('PRD_NBPERFDB')
+INSERT INTO #DatabaseName VALUES ('PortalDB')
+INSERT INTO #DatabaseName VALUES ('PRD_Activiti_Arc')
+INSERT INTO #DatabaseName VALUES ('DBA')
+INSERT INTO #DatabaseName VALUES ('PRD_FWDNavigator')
+INSERT INTO #DatabaseName VALUES ('PRD_FLOWABLE')
+INSERT INTO #DatabaseName VALUES ('PRD_SOLUTION')
+INSERT INTO #DatabaseName VALUES ('PRD_SSP')
+INSERT INTO #DatabaseName VALUES ('IconnectDB')
+INSERT INTO #DatabaseName VALUES ('NBOL_PRD')
+INSERT INTO #DatabaseName VALUES ('UWMe_PRD')
+INSERT INTO #DatabaseName VALUES ('DynamicSPAJ')
+INSERT INTO #DatabaseName VALUES ('eServicesAPI')
+INSERT INTO #DatabaseName VALUES ('eServiceUser')
+INSERT INTO #DatabaseName VALUES ('PRD_FLOWABLE_20220204')
+
+
+-- 3. Deklarasi cursor
+DECLARE @ConfigFileName NVARCHAR(128);
+
+DECLARE ConfigFileCursor CURSOR FOR
+SELECT DatabaseName
+FROM #DatabaseName;
+
+-- 4. Buka cursor
+OPEN ConfigFileCursor;
+
+-- 5. Fetch pertama dari cursor
+FETCH NEXT FROM ConfigFileCursor INTO @ConfigFileName;
+
+-- 6. Loop melalui baris-baris cursor
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    -- Script untuk mengecek nama linked server
+    PRINT 'Processing linked server: ' + @ConfigFileName;
+
+    -- Di sini Anda bisa menambahkan logika untuk mengecek sesuatu pada linked server
+    -- Misalnya, menjalankan query di linked server atau memeriksa objek tertentu
+
+    -- Contoh sederhana: memeriksa tabel sys.syscomments di server utama untuk referensi ke linked server
+    DECLARE @query NVARCHAR(MAX) = N'
+	INSERT INTO #JobAffected
+	SELECT DISTINCT
+		--a.job_id,
+		b.name as JobName
+		@ConfigFileName as DatabaseName
+	FROM
+		msdb..sysjobsteps a
+		LEFT JOIN
+		msdb..sysjobs b
+		ON a.job_id = b.job_id
+	WHERE	
+		CHARINDEX(@ConfigFileName,a.command) > 1';
+
+    
+    -- Eksekusi query dinamis
+    EXEC sp_executesql @query, N'@ConfigFileName NVARCHAR(MAX)', @ConfigFileName = @ConfigFileName;
+
+
+    -- Fetch berikutnya dari cursor
+    FETCH NEXT FROM ConfigFileCursor INTO @ConfigFileName;
+END;
+
+-- 7. Tutup dan deallocate cursor
+CLOSE ConfigFileCursor;
+DEALLOCATE ConfigFileCursor;
+
+SELECT * FROM #JobAffected
+
+-- 8. Hapus tabel sementara
+DROP TABLE #DatabaseName;
+DROP TABLE #JobAffected;
+
