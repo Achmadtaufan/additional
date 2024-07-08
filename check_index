@@ -1,0 +1,29 @@
+SELECT 
+    i.name AS index_name,
+    ISNULL(ixs.[description], '') AS index_description,
+    (
+        SELECT 
+            c.name + CASE WHEN ic.is_descending_key = 1 THEN ' DESC' ELSE ' ASC' END + ', '
+        FROM 
+            sys.index_columns ic
+            INNER JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+        WHERE 
+            ic.object_id = i.object_id
+            AND ic.index_id = i.index_id
+        ORDER BY 
+            ic.key_ordinal
+        FOR XML PATH('')
+    ) AS index_keys
+FROM 
+    sys.indexes i
+    LEFT JOIN sys.indexes ix ON i.object_id = ix.object_id AND i.index_id = ix.index_id
+    LEFT JOIN sys.indexes ix2 ON i.object_id = ix2.object_id AND i.index_id = ix2.index_id
+    LEFT JOIN sys.extended_properties ixs ON ix2.object_id = ixs.major_id AND ix2.index_id = ixs.minor_id AND ixs.name = 'MS_Description'
+WHERE 
+    i.type > 0
+    AND i.is_unique_constraint = 0
+    AND i.is_primary_key = 0
+    AND i.is_unique = 0
+ORDER BY 
+    i.object_id,
+    i.index_id;
