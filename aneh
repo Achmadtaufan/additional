@@ -1,0 +1,35 @@
+-- Contoh tabel dengan kolom numerik
+CREATE TABLE ExampleTable (
+    id INT PRIMARY KEY,
+    numeric_date NUMERIC(8, 0)
+);
+
+-- Insert data contoh
+INSERT INTO ExampleTable (id, numeric_date)
+VALUES (1, 20010101), -- 2001-01-01
+       (2, 20230721), -- 2023-07-21
+       (3, 00000200), -- Nilai yang ingin dikonversi
+       (4, 0);        -- Nilai yang ingin dikonversi dan akan menjadi NULL
+
+-- Query untuk mengonversi nilai numerik menjadi DATE dengan validasi dan grouping menggunakan COALESCE
+WITH ConvertedDates AS (
+    SELECT 
+        numeric_date,
+        COALESCE(
+            TRY_CONVERT(DATE, CONVERT(VARCHAR(8), numeric_date), 112),
+            TRY_CONVERT(DATE, '19000101', 112) -- Nilai default jika konversi gagal
+        ) AS converted_date
+    FROM 
+        ExampleTable
+)
+SELECT 
+    converted_date,
+    COUNT(*) AS count_of_records
+FROM 
+    ConvertedDates
+WHERE 
+    converted_date IS NOT NULL  -- Hanya ambil data yang berhasil dikonversi
+GROUP BY 
+    converted_date
+ORDER BY 
+    converted_date;
