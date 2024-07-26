@@ -1,0 +1,14 @@
+-- Mengonversi numeric ke format tanggal
+SELECT
+    FORMAT(
+        CONVERT(
+            DATE,
+            '20' + SUBSTRING(CAST(trans AS VARCHAR(6)), 5, 2) + '-' +  -- Tahun (yyyy)
+            SUBSTRING(CAST(trans AS VARCHAR(6)), 3, 2) + '-' +       -- Bulan (MM)
+            SUBSTRING(CAST(trans AS VARCHAR(6)), 1, 2),              -- Hari (dd)
+            23 -- Format yyyy-MM-dd
+        ),
+        'dd/MM/yyyy'
+    ) AS formatted_date
+FROM
+    your_table;
