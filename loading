@@ -1,0 +1,9 @@
+DECLARE @TanggalBayar DATE = '2022-12-20';
+DECLARE @CurrentDate DATE = GETDATE();
+
+SELECT 'Tahunan' AS CaraBayar,
+       CASE
+           WHEN DATEADD(YEAR, DATEDIFF(YEAR, @TanggalBayar, @CurrentDate), @TanggalBayar) > @CurrentDate
+           THEN DATEDIFF(YEAR, @TanggalBayar, @CurrentDate)
+           ELSE DATEDIFF(YEAR, @TanggalBayar, @CurrentDate) + 1
+       END AS JumlahPembayaran;
