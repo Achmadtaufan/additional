@@ -1,0 +1,82 @@
+CREATE FUNCTION dbo.ToCamelCase (@input NVARCHAR(MAX))
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN
+    DECLARE @output NVARCHAR(MAX) = ''
+    DECLARE @i INT = 1
+    DECLARE @char NVARCHAR(1)
+    DECLARE @tempWord NVARCHAR(MAX) = ''
+    DECLARE @isWord BIT = 0
+    DECLARE @capitalize BIT = 1
+    DECLARE @specialWords TABLE (word NVARCHAR(MAX))
+
+    -- Daftarkan kata-kata khusus di sini
+    INSERT INTO @specialWords (word) VALUES ('FWD'), ('RE'), ('FW')
+
+    WHILE @i <= LEN(@input)
+    BEGIN
+        SET @char = SUBSTRING(@input, @i, 1)
+        
+        IF @char LIKE '[A-Za-z]'
+        BEGIN
+            SET @tempWord = @tempWord + @char
+            SET @isWord = 1
+        END
+        ELSE
+        BEGIN
+            IF @isWord = 1
+            BEGIN
+                IF EXISTS (SELECT 1 FROM @specialWords WHERE word = UPPER(@tempWord))
+                BEGIN
+                    SET @output = @output + UPPER(@tempWord)
+                END
+                ELSE
+                BEGIN
+                    -- Convert to camel case for other words
+                    IF @capitalize = 1
+                    BEGIN
+                        SET @output = @output + UPPER(SUBSTRING(@tempWord, 1, 1)) + LOWER(SUBSTRING(@tempWord, 2, LEN(@tempWord) - 1))
+                        SET @capitalize = 0
+                    END
+                    ELSE
+                    BEGIN
+                        SET @output = @output + LOWER(@tempWord)
+                    END
+                END
+                SET @tempWord = ''
+            END
+            SET @output = @output + @char
+            SET @isWord = 0
+            IF @char LIKE '[^A-Za-z]'
+            BEGIN
+                SET @capitalize = 1
+            END
+        END
+
+        SET @i = @i + 1
+    END
+
+    -- Append the last word if exists
+    IF LEN(@tempWord) > 0
+    BEGIN
+        IF EXISTS (SELECT 1 FROM @specialWords WHERE word = UPPER(@tempWord))
+        BEGIN
+            SET @output = @output + UPPER(@tempWord)
+        END
+        ELSE
+        BEGIN
+            -- Convert to camel case for other words
+            IF @capitalize = 1
+            BEGIN
+                SET @output = @output + UPPER(SUBSTRING(@tempWord, 1, 1)) + LOWER(SUBSTRING(@tempWord, 2, LEN(@tempWord) - 1))
+            END
+            ELSE
+            BEGIN
+                SET @output = @output + LOWER(@tempWord)
+            END
+        END
+    END
+
+    RETURN @output
+END
+GO
