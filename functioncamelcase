@@ -34,15 +34,14 @@ BEGIN
                 ELSE
                 BEGIN
                     -- Cek jika @tempWord diawali angka dan diikuti huruf
-                    IF @tempWord LIKE '[0-9]%[a-zA-Z]'
+                    IF @tempWord LIKE '[0-9]%[A-Z]'
                     BEGIN
-                        -- Menggunakan variabel lokal untuk memisahkan angka dan huruf
                         DECLARE @numPart NVARCHAR(MAX);
                         DECLARE @textPart NVARCHAR(MAX);
                         
                         -- Memisahkan bagian angka dan huruf
-                        SET @numPart = LEFT(@tempWord, PATINDEX('%[a-zA-Z]%', @tempWord) - 1);
-                        SET @textPart = SUBSTRING(@tempWord, PATINDEX('%[a-zA-Z]%', @tempWord), LEN(@tempWord));
+                        SET @numPart = LEFT(@tempWord, PATINDEX('%[A-Z]%', @tempWord) - 1);
+                        SET @textPart = SUBSTRING(@tempWord, PATINDEX('%[A-Z]%', @tempWord), LEN(@tempWord));
                         
                         -- Mengubah huruf-huruf setelah angka menjadi huruf kecil
                         SET @textPart = LOWER(@textPart);
@@ -83,13 +82,13 @@ BEGIN
         END
         ELSE
         BEGIN
-            IF @tempWord LIKE '[0-9]%[a-zA-Z]'
+            IF @tempWord LIKE '[0-9]%[A-Z]'
             BEGIN
                 DECLARE @numPart NVARCHAR(MAX);
                 DECLARE @textPart NVARCHAR(MAX);
                 
-                SET @numPart = LEFT(@tempWord, PATINDEX('%[a-zA-Z]%', @tempWord) - 1);
-                SET @textPart = SUBSTRING(@tempWord, PATINDEX('%[a-zA-Z]%', @tempWord), LEN(@tempWord));
+                SET @numPart = LEFT(@tempWord, PATINDEX('%[A-Z]%', @tempWord) - 1);
+                SET @textPart = SUBSTRING(@tempWord, PATINDEX('%[A-Z]%', @tempWord), LEN(@tempWord));
                 
                 SET @textPart = LOWER(@textPart);
                 
