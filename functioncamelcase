@@ -17,7 +17,7 @@ BEGIN
     BEGIN
         SET @char = SUBSTRING(@input, @i, 1);
         
-        IF @char LIKE '[A-Za-z]'
+        IF @char LIKE '[A-Za-z0-9]'
         BEGIN
             SET @tempWord = @tempWord + @char;
             SET @isWord = 1;
@@ -33,11 +33,21 @@ BEGIN
                 END
                 ELSE
                 BEGIN
-                    -- Cek jika @tempWord mengandung angka di akhir
-                    IF @tempWord LIKE '%[0-9]'
+                    -- Cek jika @tempWord diawali angka dan diikuti huruf
+                    IF @tempWord LIKE '[0-9]%[a-zA-Z]'
                     BEGIN
-                        SET @output = @output + LOWER(SUBSTRING(@tempWord, 1, LEN(@tempWord) - PATINDEX('%[0-9]%', REVERSE(@tempWord)) + 1)) 
-                                    + SUBSTRING(@tempWord, LEN(@tempWord) - PATINDEX('%[0-9]%', REVERSE(@tempWord)) + 2, LEN(@tempWord));
+                        -- Menyusun kembali kata dengan angka diikuti huruf kecil
+                        DECLARE @numPart NVARCHAR(MAX);
+                        DECLARE @textPart NVARCHAR(MAX);
+                        
+                        -- Memisahkan bagian angka dan huruf
+                        SET @numPart = LEFT(@tempWord, PATINDEX('%[A-Za-z]%', SUBSTRING(@tempWord, 1, LEN(@tempWord))) - 1);
+                        SET @textPart = SUBSTRING(@tempWord, PATINDEX('%[A-Za-z]%', @tempWord), LEN(@tempWord));
+                        
+                        -- Mengubah huruf-huruf setelah angka menjadi huruf kecil
+                        SET @textPart = LOWER(@textPart);
+                        
+                        SET @output = @output + @numPart + @textPart;
                     END
                     ELSE
                     BEGIN
@@ -56,7 +66,7 @@ BEGIN
             END
             SET @output = @output + @char;
             SET @isWord = 0;
-            IF @char LIKE '[^A-Za-z]'
+            IF @char LIKE '[^A-Za-z0-9]'
             BEGIN
                 SET @capitalize = 1;
             END
@@ -73,10 +83,17 @@ BEGIN
         END
         ELSE
         BEGIN
-            IF @tempWord LIKE '%[0-9]'
+            IF @tempWord LIKE '[0-9]%[a-zA-Z]'
             BEGIN
-                SET @output = @output + LOWER(SUBSTRING(@tempWord, 1, LEN(@tempWord) - PATINDEX('%[0-9]%', REVERSE(@tempWord)) + 1)) 
-                            + SUBSTRING(@tempWord, LEN(@tempWord) - PATINDEX('%[0-9]%', REVERSE(@tempWord)) + 2, LEN(@tempWord));
+                DECLARE @numPart NVARCHAR(MAX);
+                DECLARE @textPart NVARCHAR(MAX);
+                
+                SET @numPart = LEFT(@tempWord, PATINDEX('%[A-Za-z]%', SUBSTRING(@tempWord, 1, LEN(@tempWord))) - 1);
+                SET @textPart = SUBSTRING(@tempWord, PATINDEX('%[A-Za-z]%', @tempWord), LEN(@tempWord));
+                
+                SET @textPart = LOWER(@textPart);
+                
+                SET @output = @output + @numPart + @textPart;
             END
             ELSE
             BEGIN
