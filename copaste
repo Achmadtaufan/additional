@@ -1,0 +1,28 @@
+using System;
+using System.Net;
+using Microsoft.SqlServer.Dts.Runtime;
+
+public partial class ScriptMain : UserComponent
+{
+    public void Main()
+    {
+        try
+        {
+            string url = "YOUR_ONEDRIVE_LINK";
+            string localPath = @"C:\Path\To\Download\ExcelFile.xlsx";
+
+            using (WebClient client = new WebClient())
+            {
+                client.DownloadFile(url, localPath);
+            }
+
+            Dts.TaskResult = (int)ScriptResults.Success;
+        }
+        catch (Exception ex)
+        {
+            // Log error and set task result to failure
+            Dts.Events.FireError(0, "Script Task", ex.Message, string.Empty, 0);
+            Dts.TaskResult = (int)ScriptResults.Failure;
+        }
+    }
+}
