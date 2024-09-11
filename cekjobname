@@ -1,0 +1,45 @@
+-- Create a temporary table to store results
+IF OBJECT_ID('tempdb..#JobSteps') IS NOT NULL
+    DROP TABLE #JobSteps;
+
+CREATE TABLE #JobSteps (
+    JobID UNIQUEIDENTIFIER,
+    JobName NVARCHAR(128),
+    StepID INT,
+    StepName NVARCHAR(128),
+    Command NVARCHAR(MAX)
+);
+
+-- Insert job steps containing 'ods' into the temporary table
+INSERT INTO #JobSteps (JobID, JobName, StepID, StepName, Command)
+SELECT 
+    j.job_id AS JobID,
+    j.name AS JobName,
+    js.step_id AS StepID,
+    js.step_name AS StepName,
+    js.command AS Command
+FROM 
+    msdb.dbo.sysjobs j
+JOIN 
+    msdb.dbo.sysjobsteps js ON j.job_id = js.job_id
+WHERE 
+    j.name LIKE '%ods%' 
+    OR js.step_name LIKE '%ods%' 
+    OR js.command LIKE '%ods%';
+
+-- Select jobs containing 'ods' and their steps
+SELECT 
+    j.job_id AS JobID,
+    j.name AS JobName,
+    js.step_id AS StepID,
+    js.step_name AS StepName,
+    js.command AS Command
+FROM 
+    msdb.dbo.sysjobs j
+LEFT JOIN 
+    #JobSteps js ON j.job_id = js.JobID
+ORDER BY 
+    JobName, StepID;
+
+-- Drop the temporary table
+DROP TABLE #JobSteps;
