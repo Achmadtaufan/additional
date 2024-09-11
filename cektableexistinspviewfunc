@@ -1,13 +1,15 @@
 DECLARE @TableName NVARCHAR(128) = 'product';
-DECLARE @DatabaseName NVARCHAR(128);
 DECLARE @SQL NVARCHAR(MAX);
-DECLARE @HasAccess BIT;
+
+-- Build the SQL to search across all databases
+SET @SQL = '
+DECLARE @DatabaseName NVARCHAR(128);
 
 -- Cursor to iterate through each database
 DECLARE db_cursor CURSOR FOR 
 SELECT name 
 FROM sys.databases
-WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb'); -- Exclude system databases
+WHERE name NOT IN (''master'', ''tempdb'', ''model'', ''msdb''); -- Exclude system databases
 
 OPEN db_cursor;
 FETCH NEXT FROM db_cursor INTO @DatabaseName;
@@ -15,39 +17,20 @@ FETCH NEXT FROM db_cursor INTO @DatabaseName;
 WHILE @@FETCH_STATUS = 0
 BEGIN
     -- Check if the user svc_dwh has access to the current database
-    SET @HasAccess = 0;
-
-    -- Dynamically check access in each database
-    SET @SQL = '
-    USE [' + @DatabaseName + '];
-
-    -- Check if the user svc_dwh has at least READ access
     IF EXISTS (
         SELECT 1
-        FROM sys.database_permissions dp
-        JOIN sys.database_principals dp2 ON dp.grantee_principal_id = dp2.principal_id
+        FROM [' + @DatabaseName + '].sys.database_permissions dp
+        JOIN [' + @DatabaseName + '].sys.database_principals dp2 ON dp.grantee_principal_id = dp2.principal_id
         WHERE dp2.name = ''svc_dwh'' AND dp.permission_name IN (''SELECT'', ''EXECUTE'')
     )
     BEGIN
-        SET @HasAccess = 1;
-    END
-    ';
-
-    EXEC sp_executesql @SQL, N'@HasAccess BIT OUTPUT', @HasAccess OUTPUT;
-
-    IF @HasAccess = 1
-    BEGIN
-        -- Perform the search in databases where svc_dwh has access
-        SET @SQL = '
-        USE [' + @DatabaseName + '];
-
         -- Searching in stored procedures
         SELECT 
             ''' + @DatabaseName + ''' AS DatabaseName,
             ''Procedure'' AS ObjectType,
             OBJECT_NAME(OBJECT_ID) AS ObjectName
         FROM 
-            sys.procedures
+            [' + @DatabaseName + '].sys.procedures
         WHERE 
             OBJECT_DEFINITION(OBJECT_ID) LIKE ''%' + @TableName + '%''
 
@@ -59,7 +42,7 @@ BEGIN
             ''Function'' AS ObjectType,
             OBJECT_NAME(OBJECT_ID) AS ObjectName
         FROM 
-            sys.objects
+            [' + @DatabaseName + '].sys.objects
         WHERE 
             type IN (''FN'', ''IF'', ''TF'') -- scalar, inline, and table-valued functions
             AND OBJECT_DEFINITION(OBJECT_ID) LIKE ''%' + @TableName + '%''
@@ -72,7 +55,7 @@ BEGIN
             ''View'' AS ObjectType,
             OBJECT_NAME(OBJECT_ID) AS ObjectName
         FROM 
-            sys.views
+            [' + @DatabaseName + '].sys.views
         WHERE 
             OBJECT_DEFINITION(OBJECT_ID) LIKE ''%' + @TableName + '%''
 
@@ -84,13 +67,10 @@ BEGIN
             ''View'' AS ObjectType,
             OBJECT_NAME(OBJECT_ID) AS ObjectName
         FROM 
-            sys.sql_modules
+            [' + @DatabaseName + '].sys.sql_modules
         WHERE 
             OBJECT_DEFINITION(OBJECT_ID) LIKE ''%' + @TableName + '%'' AND 
-            OBJECT_ID IN (SELECT OBJECT_ID FROM sys.views)
-        ';
-
-        EXEC sp_executesql @SQL;
+            OBJECT_ID IN (SELECT OBJECT_ID FROM [' + @DatabaseName + '].sys.views)
     END
 
     FETCH NEXT FROM db_cursor INTO @DatabaseName;
@@ -98,3 +78,7 @@ END
 
 CLOSE db_cursor;
 DEALLOCATE db_cursor;
+';
+
+-- Execute the dynamic SQL
+EXEC sp_executesql @SQL;
