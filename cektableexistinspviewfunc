@@ -1,0 +1,74 @@
+DECLARE @TableName NVARCHAR(128) = 'product';
+DECLARE @DatabaseName NVARCHAR(128);
+DECLARE @SQL NVARCHAR(MAX);
+
+-- Cursor to iterate through each database
+DECLARE db_cursor CURSOR FOR 
+SELECT name 
+FROM sys.databases
+WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb'); -- Exclude system databases
+
+OPEN db_cursor;
+FETCH NEXT FROM db_cursor INTO @DatabaseName;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @SQL = '
+    USE [' + @DatabaseName + '];
+
+    -- Searching in stored procedures
+    SELECT 
+        ''' + @DatabaseName + ''' AS DatabaseName,
+        ''Procedure'' AS ObjectType,
+        OBJECT_NAME(OBJECT_ID) AS ObjectName
+    FROM 
+        sys.procedures
+    WHERE 
+        OBJECT_DEFINITION(OBJECT_ID) LIKE ''%' + @TableName + '%''
+
+    UNION ALL
+
+    -- Searching in functions
+    SELECT 
+        ''' + @DatabaseName + ''' AS DatabaseName,
+        ''Function'' AS ObjectType,
+        OBJECT_NAME(OBJECT_ID) AS ObjectName
+    FROM 
+        sys.objects
+    WHERE 
+        type IN (''FN'', ''IF'', ''TF'') -- scalar, inline, and table-valued functions
+        AND OBJECT_DEFINITION(OBJECT_ID) LIKE ''%' + @TableName + '%''
+
+    UNION ALL
+
+    -- Searching in views
+    SELECT 
+        ''' + @DatabaseName + ''' AS DatabaseName,
+        ''View'' AS ObjectType,
+        OBJECT_NAME(OBJECT_ID) AS ObjectName
+    FROM 
+        sys.views
+    WHERE 
+        OBJECT_DEFINITION(OBJECT_ID) LIKE ''%' + @TableName + '%''
+
+    UNION ALL
+
+    -- Searching in views, considering definition
+    SELECT 
+        ''' + @DatabaseName + ''' AS DatabaseName,
+        ''View'' AS ObjectType,
+        OBJECT_NAME(OBJECT_ID) AS ObjectName
+    FROM 
+        sys.sql_modules
+    WHERE 
+        OBJECT_DEFINITION(OBJECT_ID) LIKE ''%' + @TableName + '%'' AND 
+        OBJECT_ID IN (SELECT OBJECT_ID FROM sys.views)
+    ';
+
+    EXEC sp_executesql @SQL;
+
+    FETCH NEXT FROM db_cursor INTO @DatabaseName;
+END
+
+CLOSE db_cursor;
+DEALLOCATE db_cursor;
