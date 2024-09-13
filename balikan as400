@@ -1,0 +1,131 @@
+WITH rowdata AS (
+    SELECT f1.userid AS user_id,
+           f1.group_name AS department,
+           TRIM(e.longdesc) AS partner,
+           c.chdrnum AS policy_number,
+           a.reqnno AS payment_number,
+           CASE 
+               WHEN b.sacstyp = 'DS' THEN 'DIVIDEND'
+               WHEN b.sacstyp = 'MS' THEN 'MATURITY'
+               WHEN b.sacstyp = 'PS' THEN 'FREELOOK'
+               WHEN b.sacstyp = 'SO' AND c.statcode = 'IF' THEN 'WITHDRAWAL'
+               WHEN b.sacstyp = 'SO' AND c.statcode = 'SU' THEN 'SURRENDER'
+               WHEN b.sacstyp = 'NS' THEN 'REFUND CONTRACT SUSPENSE'
+               WHEN b.sacstyp = 'LS' THEN 'POLICY LOAN'
+               WHEN b.sacstyp = 'CB' THEN 'NCB'
+               WHEN b.sacstyp = 'EZ' THEN 'TAHAPAN'
+               WHEN b.sacstyp = 'SR' THEN 'ROP'
+               WHEN b.sacstyp = 'SL' THEN 'AUTO SURRENDER'
+               WHEN b.sacstyp = 'S' THEN 'REFUND PREMIUM'
+               ELSE (SELECT x.longdesc 
+                     FROM inuat3dta.descpf x 
+                     WHERE x.descitem = b.sacstyp 
+                       AND x.desctabl = 'T3695' 
+                       AND x.desccoy = b.rdoccoy 
+                       AND x.language = 'E') 
+           END AS type,
+           b.crate AS exchange_rate,
+           CASE 
+               WHEN a.paycurr = 'USD' THEN a.payamt
+               WHEN a.paycurr = 'AUD' THEN 'AUD ' || a.payamt 
+               ELSE '0' 
+           END AS amount_usd,
+           CASE 
+               WHEN a.paycurr = 'IDR' THEN a.payamt 
+               ELSE '0' 
+           END AS amount_idr,
+           d.bankaccdsc AS benef_name,
+           '' AS benef_bank, -- fill as bank type destination -- available when the new setup in LA is ready
+           '' AS benef_bank_name, -- fill bank name destination -- available when the new setup in LA is ready
+           '' AS swiftcode, -- fill bank swiftcode based on benef_bank / bank type destination -- available when the new setup in LA is ready
+           d.bankacckey AS benef_account,
+           CASE 
+               WHEN COALESCE(CHAR(a.reqdate), '0') = '0' THEN '' 
+               ELSE CHAR(a.reqdate) 
+           END AS rq_create_date, 
+           CASE 
+               WHEN COALESCE(CHAR(a.apprdte), '0') = '0' THEN '' 
+               ELSE CHAR(a.apprdte) 
+           END AS rq_approved_date,
+           f2.userid AS approved_user, 
+           f3.userid AS authorised_user,
+           CASE 
+               WHEN COALESCE(CHAR(a.authdate), '0') = '0' THEN '' 
+               ELSE CHAR(a.authdate) 
+           END AS rq_authorised_date,
+           a.datime AS update_timestamp
+    FROM inuat3dta.cheqpf a
+    JOIN inuat3dta.preqpf b 
+        ON a.reqnno = b.rdocnum 
+       AND a.reqncoy = b.rdoccoy
+    JOIN inuat3dta.chdrpf c 
+        ON b.rldgacct = c.chdrnum 
+       AND c.validflag = '1' 
+       AND b.rdoccoy = c.chdrcoy
+    JOIN inuat3dta.clbapf d 
+        ON d.bankacckey = a.bankacckey 
+       AND a.clntnum01 = d.clntnum 
+       AND a.bankkey = d.bankkey 
+       AND a.facthous = d.facthous 
+       AND d.validflag = '1'
+    JOIN inuat3dta.descpf e 
+        ON e.descitem = c.srcebus 
+       AND e.desctabl = 'T3615' 
+       AND e.descpfx = 'IT' 
+       AND e.language = 'E' 
+       AND e.desccoy = c.chdrcoy
+    JOIN inuat3dta.usrdpf f1 
+        ON f1.usernum = a.requser
+    LEFT JOIN inuat3dta.usrdpf f2 
+        ON f2.usernum = a.appruser
+    LEFT JOIN inuat3dta.usrdpf f3 
+        ON f3.usernum = a.authuser
+    WHERE a.procind IN ('RQ', 'AQ') 
+      AND a.AUTHDATE = '0' 
+      AND a.reversal_ind = '' 
+      AND a.reqntype = '4'
+),
+lifeassured AS (
+    SELECT DISTINCT a.chdrnum, 
+                    c.lifcnum,
+                    UPPER(TRIM(TRIM(TRIM(d.givname) || ' ' || TRIM(d.middl01) || TRIM(d.middl02)) || ' ' || TRIM(d.surname))) AS insured_name
+    FROM inuat3dta.covrpf a
+    JOIN rowdata b 
+        ON a.chdrnum = b.policy_number
+    JOIN inuat3dta.lifepf c 
+        ON c.chdrnum = a.chdrnum 
+       AND a.life = c.life
+    JOIN inuat3dta.clntpf d 
+        ON d.clntnum = c.lifcnum
+    WHERE a.validflag = '1' 
+      AND c.validflag = '1' 
+      AND d.validflag = '1'
+      AND a.life = '01' 
+      AND a.coverage = '01' 
+      AND a.rider = '00' 
+      AND c.jlife = '00'
+)
+SELECT a.user_id, 
+       a.department, 
+       a.partner, 
+       a.policy_number, 
+       a.payment_number, 
+       a.type, 
+       b.insured_name, 
+       a.exchange_rate,
+       a.amount_usd, 
+       a.amount_idr,
+       a.benef_name, 
+       a.benef_bank, 
+       a.benef_bank_name, 
+       a.swiftcode, 
+       a.benef_account, 
+       a.rq_create_date, 
+       a.rq_approved_date, 
+       a.approved_user, 
+       a.rq_authorised_date, 
+       a.authorised_user,
+       a.update_timestamp
+FROM rowdata a
+JOIN lifeassured b 
+    ON a.policy_number = b.chdrnum;
