@@ -1,0 +1,15 @@
+TITLE: Microsoft Visual Studio
+------------------------------
+
+Exception from HRESULT: 0xC0202009
+Error at Data Flow Task [OLE DB Source [51]]: SSIS Error Code DTS_E_OLEDBERROR.  An OLE DB error has occurred. Error code: 0x80004005.
+An OLE DB record is available.  Source: "IBMDA400 Command"  Hresult: 0x80004005  Description: "SQL0104: Token ; was not valid. Valid tokens: <END-OF-STATEMENT>.
+Cause . . . . . :   A syntax error was detected at token ;.  Token ; is not a valid token.  A partial list of valid tokens is <END-OF-STATEMENT>.  This list assumes that the statement is correct up to the token.  The error may be earlier in the statement, but the syntax of the statement appears to be valid up to this point. Recovery  . . . :   Do one or more of the following and try the request again: -- Verify the SQL statement in the area of the token ;. Correct the statement.  The error could be a missing comma or quotation mark, it could be a misspelled word, or it could be related to the order of clauses. -- If the error token is <END-OF-STATEMENT>, correct the SQL statement because it does not end with a valid clause.".
+
+
+
+------------------------------
+BUTTONS:
+
+OK
+------------------------------
