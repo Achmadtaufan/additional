@@ -1,0 +1,57 @@
+with rowdata as (
+    select f1.userid as user_id, f1.group_name as department, trim(e.longdesc) as partner, 
+    c.chdrnum as policy_number, a.reqnno as payment_number,
+    case when b.sacstyp = 'DS' then 'DIVIDEND'
+         when b.sacstyp = 'MS' then 'MATURITY'
+         when b.sacstyp = 'PS' then 'FREELOOK'
+         when b.sacstyp = 'SO' and c.statcode = 'IF' then 'WITHDRAWAL'
+         when b.sacstyp = 'SO' and c.statcode = 'SU' then 'SURRENDER'
+         when b.sacstyp = 'NS' then 'REFUND CONTRACT SUSPENSE'
+         when b.sacstyp = 'LS' then 'POLICY LOAN'
+         when b.sacstyp = 'CB' then 'NCB'
+         when b.sacstyp = 'EZ' then 'TAHAPAN'
+         when b.sacstyp = 'SR' then 'ROP'
+         when b.sacstyp = 'SL' then 'AUTO SURRENDER'
+         when b.sacstyp = 'S' then 'REFUND PREMIUM'
+    else (select x.longdesc from inuat3dta.descpf x where x.descitem = b.sacstyp and x.desctabl = 'T3695' and x.desccoy = b.rdoccoy and x.language = 'E') end as type, --> will be fill as transaction name, will decide later
+    b.crate as exchange_rate,
+    case when a.paycurr = 'USD' then a.payamt
+         when a.paycurr = 'AUD' then 'AUD '|| a.payamt else '0' end amount_usd,
+    case when a.paycurr = 'IDR' then a.payamt else '0' end amount_idr,
+    d.bankaccdsc as benef_name,
+    '' as benef_bank, --> will be fill as bank type destination --> available when the new setup in LA is ready
+    '' as benef_bank_name, --> will be fill bank name destination --> available when the new setup in LA is ready
+    '' as swiftcode, --> will be fill bank swiftcode based on benef_bank / bank type destination --> available when the new setup in LA is ready
+    d.bankacckey as benef_account,
+    case when nvl(to_char(to_number(a.reqdate)),'0') = '0' then '' else to_char(to_number(a.reqdate)) end as rq_create_date, 
+    case when nvl(to_char(to_number(a.apprdte)),'0') = '0' then '' else to_char(to_number(a.apprdte)) end as rq_approved_date,
+    f2.userid as approved_user, f3.userid as authorised_user,
+    case when nvl(to_char(to_number(a.authdate)),'0') = '0' then '' else to_char(to_number(a.authdate)) end as rq_authorised_date,
+    a.datime as update_timestamp
+    from inuat3dta.cheqpf a
+    join inuat3dta.preqpf b on a.reqnno = b.rdocnum and a.reqncoy = b.rdoccoy
+    join inuat3dta.chdrpf c on b.rldgacct = c.chdrnum and c.validflag = '1' and b.rdoccoy = c.chdrcoy
+    join inuat3dta.clbapf d on d.bankacckey = a.bankacckey and a.clntnum01 = d.clntnum and a.bankkey = d.bankkey and a.facthous = d.facthous and d.validflag = '1'
+    join inuat3dta.descpf e on e.descitem = c.srcebus and e.desctabl = 'T3615' and e.descpfx = 'IT' and e.language = 'E' and e.desccoy = c.chdrcoy
+    join inuat3dta.usrdpf f1 on f1.usernum = a.requser --> user creator
+    left join inuat3dta.usrdpf f2 on f2.usernum = a.appruser --> user approval
+    left join inuat3dta.usrdpf f3 on f3.usernum = a.authuser --> user authorised
+    where a.procind in ('RQ','AQ') AND a.AUTHDATE = '0' and a.reversal_ind = '' and a.reqntype = '4'
+),
+    lifeassured as (
+        select distinct a.chdrnum, c.lifcnum,
+        upper(trim(trim(trim(d.givname) || ' ' || trim(d.middl01) || trim(d.middl02)) || ' ' || trim(d.surname))) as insured_name
+        from inuat3dta.covrpf a
+        join rowdata b on a.chdrnum = b.policy_number
+        join inuat3dta.lifepf c on c.chdrnum = a.chdrnum and a.life = c.life
+        join inuat3dta.clntpf d on d.clntnum = c.lifcnum
+        where a.validflag = '1' and c.validflag = '1' and d.validflag = '1'
+        and a.life = '01' and a.coverage = '01' and a.rider = '00' and c.jlife = '00'
+        
+    )
+select 
+a.user_id, a.department, a.partner, a.policy_number, a.payment_number, a.type, b.insured_name, a.exchange_rate,a.amount_usd, a.amount_idr,
+a.benef_name, a.benef_bank, a.benef_bank_name, a.swiftcode, a.benef_account, a.rq_create_date, a.rq_approved_date, a.approved_user, a.rq_authorised_date, a.authorised_user,
+a.update_timestamp
+from rowdata a
+join lifeassured b on a.policy_number = b.chdrnum
