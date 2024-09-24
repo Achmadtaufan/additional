@@ -1,0 +1,40 @@
+DECLARE @cols AS NVARCHAR(MAX);
+DECLARE @query AS NVARCHAR(MAX);
+
+-- Mengambil daftar nomor urut untuk plan_type 'rider' berdasarkan policy_number di #eead
+SELECT @cols = STUFF((
+    SELECT DISTINCT ',' + QUOTENAME('rider' + CAST(ROW_NUMBER() OVER (PARTITION BY policy_number ORDER BY plan_code) AS NVARCHAR))
+    )
+    FROM (
+        SELECT 
+            ROW_NUMBER() OVER (PARTITION BY policy_number ORDER BY plan_code) AS rn,
+            policy_number
+        FROM 
+            tr_policyproduct
+        WHERE 
+            plan_type = 'rider' AND policy_number IN (SELECT policy_number FROM #eead)
+    ) AS x
+    FOR XML PATH('')), 1, 1, '');
+
+-- Membangun query pivot secara dinamis
+SET @query = N'SELECT policy_number, ' + @cols + N'
+FROM 
+(
+    SELECT 
+        policy_number,
+        plan_code,
+        ROW_NUMBER() OVER (PARTITION BY policy_number ORDER BY plan_code) AS rn
+    FROM 
+        tr_policyproduct
+    WHERE 
+        plan_type = ''rider'' AND policy_number IN (SELECT policy_number FROM #eead)
+) AS src
+PIVOT 
+(
+    MAX(plan_code) 
+    FOR rn IN (' + @cols + N')
+) AS pvt
+ORDER BY policy_number;';
+
+-- Menjalankan query yang telah dibangun
+EXEC sp_executesql @query;
