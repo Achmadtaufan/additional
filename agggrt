@@ -1,0 +1,32 @@
+DECLARE @cols AS NVARCHAR(MAX);
+DECLARE @query AS NVARCHAR(MAX);
+
+-- Mengambil daftar matakuliah yang unik berdasarkan kelas
+SELECT @cols = STRING_AGG(QUOTENAME(rn), ', ')
+FROM (
+    SELECT DISTINCT 
+        ROW_NUMBER() OVER (PARTITION BY kelas ORDER BY matakuliah) AS rn
+    FROM 
+        kelas
+) AS x;
+
+-- Membangun query pivot secara dinamis
+SET @query = N'SELECT kelas, ' + @cols + N'
+FROM 
+(
+    SELECT 
+        kelas,
+        matakuliah,
+        ROW_NUMBER() OVER (PARTITION BY kelas ORDER BY matakuliah) AS rn
+    FROM 
+        kelas
+) AS src
+PIVOT 
+(
+    MAX(matakuliah) 
+    FOR rn IN (' + @cols + N')
+) AS pvt
+ORDER BY kelas;';
+
+-- Menjalankan query yang telah dibangun
+EXEC sp_executesql @query;
