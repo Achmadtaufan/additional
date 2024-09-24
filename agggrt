@@ -1,32 +1,37 @@
 DECLARE @cols AS NVARCHAR(MAX);
 DECLARE @query AS NVARCHAR(MAX);
 
--- Mengambil daftar matakuliah yang unik berdasarkan kelas
-SELECT @cols = STRING_AGG(QUOTENAME(rn), ', ')
+-- Mengambil daftar nomor urut untuk plan_type 'rider'
+SELECT @cols = STRING_AGG(QUOTENAME('rider' + CAST(rn AS NVARCHAR)), ', ')
 FROM (
-    SELECT DISTINCT 
-        ROW_NUMBER() OVER (PARTITION BY kelas ORDER BY matakuliah) AS rn
+    SELECT 
+        ROW_NUMBER() OVER (PARTITION BY policy_number ORDER BY plan_code) AS rn,
+        policy_number
     FROM 
-        kelas
+        tr_policyproduct
+    WHERE 
+        plan_type = 'rider' AND policy_number IN (SELECT policy_number FROM #eead)  -- Filter berdasarkan daftar policy_number
 ) AS x;
 
 -- Membangun query pivot secara dinamis
-SET @query = N'SELECT kelas, ' + @cols + N'
+SET @query = N'SELECT policy_number, ' + @cols + N'
 FROM 
 (
     SELECT 
-        kelas,
-        matakuliah,
-        ROW_NUMBER() OVER (PARTITION BY kelas ORDER BY matakuliah) AS rn
+        policy_number,
+        plan_code,
+        ROW_NUMBER() OVER (PARTITION BY policy_number ORDER BY plan_code) AS rn
     FROM 
-        kelas
+        tr_policyproduct
+    WHERE 
+        plan_type = ''rider'' AND policy_number IN (SELECT policy_number FROM #eead)  -- Filter berdasarkan daftar policy_number
 ) AS src
 PIVOT 
 (
-    MAX(matakuliah) 
+    MAX(plan_code) 
     FOR rn IN (' + @cols + N')
 ) AS pvt
-ORDER BY kelas;';
+ORDER BY policy_number;';
 
 -- Menjalankan query yang telah dibangun
 EXEC sp_executesql @query;
