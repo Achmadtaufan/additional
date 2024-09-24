@@ -1,0 +1,35 @@
+DECLARE @cols AS NVARCHAR(MAX);
+DECLARE @query AS NVARCHAR(MAX);
+
+-- Mengambil daftar kolom untuk plan_type 'rider' berdasarkan policy_number di #eead
+SELECT @cols = STUFF((
+    SELECT DISTINCT 
+        ',' + QUOTENAME(CAST(ROW_NUMBER() OVER (ORDER BY plan_code) AS NVARCHAR))
+    FROM 
+        tr_policyproduct
+    WHERE 
+        plan_type = 'rider' AND policy_number IN (SELECT policy_number FROM #eead)
+    FOR XML PATH('')), 1, 1, '');
+
+-- Membangun query pivot secara dinamis menggunakan CTE
+SET @query = NWITH CTE AS (
+    SELECT 
+        policy_number,
+        plan_code,
+        ROW_NUMBER() OVER (PARTITION BY policy_number ORDER BY plan_code) AS rn
+    FROM 
+        tr_policyproduct
+    WHERE 
+        plan_type = 'rider' AND policy_number IN (SELECT policy_number FROM #eead)
+)
+SELECT policy_number, ' + @cols + N'
+FROM CTE
+PIVOT 
+(
+    MAX(plan_code) 
+    FOR rn IN (' + @cols + N')
+) AS pvt
+ORDER BY policy_number;';
+
+-- Menjalankan query yang telah dibangun
+EXEC sp_executesql @query;
