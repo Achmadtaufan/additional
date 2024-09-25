@@ -1,0 +1,1 @@
+Dts.Events.FireInformation(0, "Variable Value", Dts.Variables["User::MaxID"].Value.ToString(), "", 0, ref fireAgain);
