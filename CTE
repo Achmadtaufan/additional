@@ -1,23 +1,36 @@
-SELECT policy_number,
-       [1] AS Plan1,
-       [2] AS Plan2,
-       [3] AS Plan3,
-       [4] AS Plan4,
-       [5] AS Plan5
-FROM 
-(
-    SELECT 
-        policy_number,
-        plan_code,
-        ROW_NUMBER() OVER (PARTITION BY policy_number ORDER BY plan_code) AS rn
-    FROM 
-        tr_policyproduct
-    WHERE 
-        plan_type = 'rider' AND policy_number IN (SELECT policy_number FROM #eead)
-) AS src
-PIVOT 
-(
-    MAX(plan_code) 
-    FOR rn IN ([1], [2], [3], [4], [5])
-) AS pvt
-ORDER BY policy_number;
+DECLARE @n INT = 10; -- Ubah sesuai kebutuhan
+DECLARE @sql NVARCHAR(MAX);
+DECLARE @cols NVARCHAR(MAX);
+
+-- Buat daftar kolom untuk PIVOT
+SET @cols = STUFF((SELECT DISTINCT ',' + QUOTENAME(rn)
+                   FROM (
+                       SELECT ROW_NUMBER() OVER (PARTITION BY policy_number ORDER BY plan_code) AS rn
+                       FROM tr_policyproduct
+                       WHERE plan_type = 'rider' AND policy_number IN (SELECT policy_number FROM #eead)
+                   ) AS x
+                   WHERE rn <= @n
+                   FOR XML PATH('')), 1, 1, '');
+
+-- Buat query PIVOT secara dinamis
+SET @sql = N'SELECT policy_number, ' + @cols + '
+            FROM 
+            (
+                SELECT 
+                    policy_number,
+                    plan_code,
+                    ROW_NUMBER() OVER (PARTITION BY policy_number ORDER BY plan_code) AS rn
+                FROM 
+                    tr_policyproduct
+                WHERE 
+                    plan_type = ''rider'' AND policy_number IN (SELECT policy_number FROM #eead)
+            ) AS src
+            PIVOT 
+            (
+                MAX(plan_code) 
+                FOR rn IN (' + @cols + ')
+            ) AS pvt
+            ORDER BY policy_number;';
+
+-- Eksekusi query
+EXEC sp_executesql @sql;
