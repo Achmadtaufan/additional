@@ -1,0 +1,44 @@
+USE msdb;
+
+-- Daftar nama job yang ingin dinonaktifkan
+DECLARE @JobNames TABLE (JobName NVARCHAR(256));
+INSERT INTO @JobNames (JobName)
+VALUES ('99.testing'), ('00.marein'), ('01.etl acmv'), ('etl ods');
+
+-- Disable semua job yang ada dalam daftar dan statusnya enabled
+DECLARE @JobName NVARCHAR(256);
+
+DECLARE job_cursor CURSOR FOR
+SELECT JobName
+FROM @JobNames;
+
+OPEN job_cursor;
+
+FETCH NEXT FROM job_cursor INTO @JobName;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM sysjobs
+        WHERE name = @JobName AND enabled = 1
+    )
+    BEGIN
+        EXEC msdb.dbo.sp_update_job
+            @job_name = @JobName,
+            @enabled = 0;
+
+        PRINT 'Job ' + @JobName + ' telah dinonaktifkan.';
+    END
+    ELSE
+    BEGIN
+        PRINT 'Job ' + @JobName + ' tidak ditemukan atau sudah dinonaktifkan.';
+    END
+
+    FETCH NEXT FROM job_cursor INTO @JobName;
+END
+
+CLOSE job_cursor;
+DEALLOCATE job_cursor;
+
+PRINT 'Proses menonaktifkan job selesai.';
