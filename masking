@@ -1,0 +1,13 @@
+CREATE FUNCTION dbo.MaskBankAccountKey (@bankAccountKey VARCHAR(20))
+RETURNS VARCHAR(20)
+AS
+BEGIN
+    DECLARE @maskedKey VARCHAR(20);
+
+    -- Ambil 4 digit pertama dan 4 digit terakhir, sisanya diganti dengan 'X'
+    SET @maskedKey = LEFT(@bankAccountKey, 4) + 
+                     REPLICATE('X', LEN(@bankAccountKey) - 8) + 
+                     RIGHT(@bankAccountKey, 4);
+                     
+    RETURN @maskedKey;
+END;
