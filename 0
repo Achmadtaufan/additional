@@ -1,90 +1,115 @@
-select   
-	POLICYNUMBER = cov.CHDRNUM 
-	,PLANCODE = CRTABLE 
-	,PLAN_TYPE = CASE 
-					WHEN cov.LIFE='01' and cov.COVERAGE='01' and cov.RIDER='00' THEN 'PLAN'
-					when itempf.tipe is not null then itempf.tipe
-					--WHEN cov.LIFE='01' and cov.COVERAGE <> '01' and cov.RIDER='00'  and ( cov.CRTABLE <> 'fwdb'  and cov.CRTABLE not like 'zst%'  )  and FREQ ='' THEN 'BOOSTER'
-					ELSE 'RIDER'
-				 END
-	,LOADINGPREMIUM = ISNULL(ZLINSTPREM ,0)
-	,DISCOUNTPREMIUM = ISNULL(ZDINSTPREM  ,0)
-	,BASICPREMIUM = CASE WHEN cov.LIFE='01' and cov.COVERAGE='01' and cov.RIDER='00'
-					THEN  ISNULL(INSTPREM,0)+ISNULL(SINGP,0) ELSE 0 END
-	,TOPUP = CASE 
-					WHEN cov.LIFE='01' and cov.COVERAGE <> '01' and cov.RIDER='00' 
-						and ( cov.CRTABLE <> 'fwdb'  and cov.CRTABLE not like 'zst%'  )  and FREQ =''
-					THEN 
-						case when cov.ZBINSTPREM = 0 then cov.INSTPREM else cov.ZBINSTPREM  end
-					ELSE 0 
-			END
-	,RIDERPREMIUM = CASE 
-						WHEN cov.LIFE='01' and cov.COVERAGE='01' and cov.RIDER='00' THEN 0 
-						WHEN cov.LIFE='01' and cov.COVERAGE <> '01' and cov.RIDER='00' 
-							and ( cov.CRTABLE <> 'fwdb'  and cov.CRTABLE not like 'zst%'  )  and FREQ ='' THEN 0 
-						ELSE INSTPREM
-					END 
-	,COVERAGEDEBT =null
-	,cov.LIFE,cov.COVERAGE,cov.RIDER, TRANNO=null
-	, CURRFROM=null,CURRTO=null
-	,COVERAGESTATUS =null
-	,PREMIUMSTATUS =null
-	,CHANGESTATUSREASON   =null
-	,COVERAGECOMMENCEMENTDATE  =null
-	,AGEATTAINED  =null
-	, SEX=null
-	,CURRENCY =null
-	,TRANDATE = TRDT
-	,TRANTIME = TRTM
-	,RISKCESSATIONDATE = RCESDTE 
-	,PREMIUMCESSATIONDATE = PCESDTE 
-	,BENEFITCESSATIONDATE = BCESDTE 
-	,NEXTACTIVITYDATE =null
-	,RISKCESSATIONAGE = RCESAGE 
-	,PREMIUMCESSATIONAGE = PCESAGE 
-	,BENEFITCESSATIONAGE = BCESAGE 
-	,RISKTERM = RCESTRM 
-	,PREMIUMTERM = PCESTRM 
-	,BENEFITTERM = BCESTRM 
-	,SUMINS
-	,PLNSFX
-	,CURRENCYCODE=null
-	,MORTALITYCLASS = MORTCLS 
-	,MATURITYVALUE =null 
-	,MATURITYDATE =null
-	,MATURITYINTEREST =null
-	,CAMPAIGN	
-	,PAIDTODATE =null
-	,ZPTDATEPC=null
-	,STATUSCHANGEDATE =null
-	,PREMIUMSTATUSDATE =null
-	,USRPRF
-	,DATIME
-	,COV.AUD_Type
-	,cov.AUD_time ,SOURCEOFDATA = 'AS400'
-from STG_COVtPF cov (nolock ) 
-join ( 
-	SELECT ID = max(ID),CHDRNUM ,COVERAGE,LIFE,RIDER  FROM STG_COVtPF cov2 (NOLOCK)  
-	WHERE 1=1 
-	AND cov2.AUD_TYPE NOT IN ( 'CB','ub' )  
-	and cov2.CHDRNUM <> ''
-	group by CHDRNUM ,COVERAGE,LIFE,RIDER
-)cov2  on   cov2.CHDRNUM  = cov.CHDRNUM 
-	and cov2.LIFE=cov.LIFE and cov2.COVERAGE=cov.COVERAGE and cov2.RIDER=cov.RIDER and cov2.ID = cov.ID
-left join (
-	select   
-		RTRIM(a.DESCITEM) AS ITEMCODE, 
-		tipe =  case when a.DESCITEM like '%st%' or a.LONGDESC like '%sing%' or a.LONGDESC like '%boost%'  then 'STU' else 'RTU' end 
-    
-	from 
-	stg_descpf a WITH(NOLOCK) 
-	WHERE 1=1 
-	and a.DESCTABL='T5646'
-	and a.aud_type not in ('CB')  and a.AUD_Time is not null 
-	and RTRIM(a.DESCCOY) <> '' and RTRIM(a.DESCTABL) <> '' 
-	and RTRIM(a.DESCITEM) <> '' and RTRIM(a.LANGUAGE) <> ''
-	and RTRIM(a.LANGUAGE) ='e'
-	and  (RTRIM(a.LONGDESC) like '%top up%' or  RTRIM(a.LONGDESC) like '%boost%')
-)itempf on itempf.ITEMCODE = cov.CRTABLE
-WHERE 1=1    
-AND cov.CHDRNUM='C0288554'
+SELECT
+    cov.CHDRNUM AS POLICYNUMBER,
+    cov.CRTABLE AS PLANCODE,
+    CASE
+        WHEN cov.LIFE = '01' AND cov.COVERAGE = '01' AND cov.RIDER = '00' THEN 'PLAN'
+        WHEN itempf.tipe IS NOT NULL THEN itempf.tipe
+        ELSE 'RIDER'
+    END AS PLAN_TYPE,
+    COALESCE(cov.ZLINSTPREM, 0) AS LOADINGPREMIUM,
+    COALESCE(cov.ZDINSTPREM, 0) AS DISCOUNTPREMIUM,
+    CASE
+        WHEN cov.LIFE = '01' AND cov.COVERAGE = '01' AND cov.RIDER = '00'
+        THEN COALESCE(cov.INSTPREM, 0) + COALESCE(cov.SINGP, 0)
+        ELSE 0
+    END AS BASICPREMIUM,
+    CASE
+        WHEN cov.LIFE = '01' AND cov.COVERAGE <> '01' AND cov.RIDER = '00'
+        AND cov.CRTABLE <> 'fwdb' AND cov.CRTABLE NOT LIKE 'zst%' AND cov.FREQ = ''
+        THEN CASE WHEN cov.ZBINSTPREM = 0 THEN cov.INSTPREM ELSE cov.ZBINSTPREM END
+        ELSE 0
+    END AS TOPUP,
+    CASE
+        WHEN cov.LIFE = '01' AND cov.COVERAGE = '01' AND cov.RIDER = '00' THEN 0
+        WHEN cov.LIFE = '01' AND cov.COVERAGE <> '01' AND cov.RIDER = '00'
+        AND cov.CRTABLE <> 'fwdb' AND cov.CRTABLE NOT LIKE 'zst%' AND cov.FREQ = '' THEN 0
+        ELSE cov.INSTPREM
+    END AS RIDERPREMIUM,
+    NULL AS COVERAGEDEBT,
+    cov.LIFE,
+    cov.COVERAGE,
+    cov.RIDER,
+    NULL AS TRANNO,
+    NULL AS CURRFROM,
+    NULL AS CURRTO,
+    NULL AS COVERAGESTATUS,
+    NULL AS PREMIUMSTATUS,
+    NULL AS CHANGESTATUSREASON,
+    NULL AS COVERAGECOMMENCEMENTDATE,
+    NULL AS AGEATTAINED,
+    NULL AS SEX,
+    NULL AS CURRENCY,
+    cov.TRDT AS TRANDATE,
+    cov.TRTM AS TRANTIME,
+    cov.RCESDTE AS RISKCESSATIONDATE,
+    cov.PCESDTE AS PREMIUMCESSATIONDATE,
+    cov.BCESDTE AS BENEFITCESSATIONDATE,
+    NULL AS NEXTACTIVITYDATE,
+    cov.RCESAGE AS RISKCESSATIONAGE,
+    cov.PCESAGE AS PREMIUMCESSATIONAGE,
+    cov.BCESAGE AS BENEFITCESSATIONAGE,
+    cov.RCESTRM AS RISKTERM,
+    cov.PCESTRM AS PREMIUMTERM,
+    cov.BCESTRM AS BENEFITTERM,
+    cov.SUMINS,
+    cov.PLNSFX,
+    NULL AS CURRENCYCODE,
+    cov.MORTCLS AS MORTALITYCLASS,
+    NULL AS MATURITYVALUE,
+    NULL AS MATURITYDATE,
+    NULL AS MATURITYINTEREST,
+    cov.CAMPAIGN,
+    NULL AS PAIDTODATE,
+    NULL AS ZPTDATEPC,
+    NULL AS STATUSCHANGEDATE,
+    NULL AS PREMIUMSTATUSDATE,
+    cov.USRPRF,
+    cov.DATIME,
+    cov.AUD_Type,
+    cov.AUD_time,
+    'AS400' AS SOURCEOFDATA
+FROM
+    STG_COVtPF cov
+JOIN
+    (SELECT
+        MAX(ID) AS ID,
+        CHDRNUM,
+        COVERAGE,
+        LIFE,
+        RIDER
+    FROM
+        STG_COVtPF cov2
+    WHERE
+        cov2.AUD_TYPE NOT IN ('CB', 'ub')
+        AND cov2.CHDRNUM <> ''
+    GROUP BY
+        CHDRNUM, COVERAGE, LIFE, RIDER
+    ) cov2
+    ON cov2.CHDRNUM = cov.CHDRNUM
+    AND cov2.LIFE = cov.LIFE
+    AND cov2.COVERAGE = cov.COVERAGE
+    AND cov2.RIDER = cov.RIDER
+    AND cov2.ID = cov.ID
+LEFT JOIN
+    (SELECT
+        TRIM(a.DESCITEM) AS ITEMCODE,
+        CASE
+            WHEN a.DESCITEM LIKE '%st%' OR a.LONGDESC LIKE '%sing%' OR a.LONGDESC LIKE '%boost%' THEN 'STU'
+            ELSE 'RTU'
+        END AS tipe
+    FROM
+        stg_descpf a
+    WHERE
+        a.DESCTABL = 'T5646'
+        AND a.aud_type NOT IN ('CB')
+        AND a.AUD_Time IS NOT NULL
+        AND TRIM(a.DESCCOY) <> ''
+        AND TRIM(a.DESCTABL) <> ''
+        AND TRIM(a.DESCITEM) <> ''
+        AND TRIM(a.LANGUAGE) <> ''
+        AND TRIM(a.LANGUAGE) = 'e'
+        AND (TRIM(a.LONGDESC) LIKE '%top up%' OR TRIM(a.LONGDESC) LIKE '%boost%')
+    ) itempf
+    ON itempf.ITEMCODE = cov.CRTABLE
+WHERE
+    cov.CHDRNUM = 'C0288554';
