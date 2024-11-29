@@ -113,3 +113,9 @@ LEFT JOIN
     ON itempf.ITEMCODE = cov.CRTABLE
 WHERE
     cov.CHDRNUM = 'C0288554';
+
+
+
+
+The metadata could not be determined because statement 'insert #tran_altertable ( DDLsubtype, TableOwner, TableName, ColumnName, ColumnAttr )   			
+exec sys.' in procedure 'sp_cdc_ddl_event_internal' uses a temp table
