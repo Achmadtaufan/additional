@@ -1,0 +1,10 @@
+Dear @Jesi Nurpitri (IDN-BAE) dan team @DL-IDN-Banca-Aftersales
+
+Terlampir data nasabah yang eligible untuk mendapatkan ROP periode <Bulan><tahun>, untuk dimintakan konfirmasi ke pihak Bank Mestika
+Atas data yang FWD lampirkan, Mestika harus memberikan informasi perihal :
+1. Apakah No Rekening dan Nama Pemilik Rekening masih eligible untuk dilakukan transfer ROP
+2. Secara tertulis mencantumkan bahwa FWD tidak bertanggung jawab jika terjadi retur atau salah transfer karena pengajuan bukan dari nasabah
+3. Jika secara paralel, ada nasabah yang mengajukan maka FWD akan memproses yang mana mengajukan dahulu ke FWD
+4. SLA proses di OPS sampai ke finance, max 7 hari kerja dari data clean case diberikan dari team Banca dan sesuai COT pengajuan masuk. Proses di Finance mengikuti procedure finance
+
+Ps : untuk data2 yang menyusul, tetap akan diproses tapi minta tolong sekalian dimintakan konfirmasi rekening mestika yang eligible untuk transfer ROP dan diharapkan dari 1 pintu informasinya
