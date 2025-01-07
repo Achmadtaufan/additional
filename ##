@@ -11,3 +11,17 @@ Description: In Executing "D:\Program Files (x86)\WinSCP\WinSCP.exe" "/log="D:\U
 /parameter "D:\Upload_File\Shared\MKT\app_ROWCNT-10_XSELL_BIRTHDAY_CAMPAIGN_AGENCY_AGENT_LIST.csv"" at "",
 The process exit code was "1" while the expected was "0".  End Error  DTExec: The package execution returned DTSER_FAILURE (1).  Started:  7:05:00 AM  Finished: 7:05:20 AM  Elapsed:  20.719 seconds.  
 The package execution failed.  The step failed.
+
+
+
+< 2025-01-07 07:05:18.223 Script: Searching for host...
+. 2025-01-07 07:05:18.223 Looking up host "76.8.51.34" for SSH connection
+. 2025-01-07 07:05:18.229 Connecting to 76.8.51.34 port 22
+. 2025-01-07 07:05:18.491 Connected to 76.8.51.34
+< 2025-01-07 07:05:18.491 Script: Connecting to host...
+. 2025-01-07 07:05:18.492 We claim version: SSH-2.0-WinSCP_release_6.3.4
+. 2025-01-07 07:05:18.492 Connected to 76.8.51.34
+. 2025-01-07 07:05:18.751 Remote side unexpectedly closed network connection
+. 2025-01-07 07:05:18.751 Knocking FTP port.
+. 2025-01-07 07:05:20.764 FTP port did not open.
+< 2025-01-07 07:05:20.764 Script: Server unexpectedly closed network connection.
