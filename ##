@@ -1,0 +1,13 @@
+Executed as user: ID\svc_idndwh. Microsoft (R) SQL Server Execute Package Utility  Version 15.0.4410.1 for 64-bit  Copyright (C) 2019 Microsoft. All rights reserved.    
+Started:  7:05:00 AM  Error: 2025-01-07 07:05:00.44     Code: 0xC0016016     
+Source: ETL CX Files      Description: Failed to decrypt protected XML node "DTS:Password" with error 0x8009000B "Key not valid for use in specified state.". You may not be authorized to access this information. 
+This error occurs when there is a cryptographic error. Verify that the correct key is available.  End Error  Error: 2025-01-07 07:05:00.45     Code: 0xC0016016     
+Source: ETL CX Files      Description: Failed to decrypt protected XML node "DTS:Password" with error 0x8009000B "Key not valid for use in specified state.". You may not be authorized to access this information. 
+This error occurs when there is a cryptographic error. Verify that the correct key is available.  End Error  Error: 2025-01-07 07:05:00.45     Code: 0xC0016016     
+Source: ETL CX Files      Description: Failed to decrypt protected XML node "DTS:Password" with error 0x8009000B "Key not valid for use in specified state.". You may not be authorized to access this information. 
+This error occurs when there is a cryptographic error. Verify that the correct key is available.  End Error  Error: 2025-01-07 07:05:20.89     Code: 0xC0029151     
+Source: SFTP Execute Process Task     
+Description: In Executing "D:\Program Files (x86)\WinSCP\WinSCP.exe" "/log="D:\Upload_File\Shared\MKT\XSELL_BIRTHDAY_CAMPAIGN_AGENCY_AGENT_LIST.log" /script="D:\Upload_File\script\sftp\\PUT_ID_XSELL.txt" 
+/parameter "D:\Upload_File\Shared\MKT\app_ROWCNT-10_XSELL_BIRTHDAY_CAMPAIGN_AGENCY_AGENT_LIST.csv"" at "",
+The process exit code was "1" while the expected was "0".  End Error  DTExec: The package execution returned DTSER_FAILURE (1).  Started:  7:05:00 AM  Finished: 7:05:20 AM  Elapsed:  20.719 seconds.  
+The package execution failed.  The step failed.
