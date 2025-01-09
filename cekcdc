@@ -1,0 +1,9 @@
+SELECT 
+    CASE 
+        WHEN cdc.object_id IS NOT NULL THEN 'Table is CDC-enabled'
+        ELSE 'Table is NOT CDC-enabled'
+    END AS CDC_Status
+FROM sys.tables AS t
+LEFT JOIN sys.change_data_capture_tables AS cdc
+    ON t.object_id = cdc.source_object_id
+WHERE t.name = 'NamaTabelAnda';
