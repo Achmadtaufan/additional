@@ -1,0 +1,30 @@
+USE msdb;
+GO
+
+DECLARE @JobName NVARCHAR(128);
+
+-- Cursor untuk mengambil daftar job yang akan dinonaktifkan
+DECLARE job_cursor CURSOR FOR
+SELECT name
+FROM msdb.dbo.sysjobs
+WHERE name IN ('00. ETL ALL', '00. ETL PART 1', '00. ETL PART 2'); -- Ganti dengan nama-nama job yang diinginkan
+
+OPEN job_cursor;
+
+FETCH NEXT FROM job_cursor INTO @JobName;
+
+-- Loop untuk menonaktifkan semua job yang diambil
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    EXEC sp_update_job
+        @job_name = @JobName,
+        @enabled = 0;
+    
+    FETCH NEXT FROM job_cursor INTO @JobName;
+END
+
+-- Menutup cursor
+CLOSE job_cursor;
+DEALLOCATE job_cursor;
+
+GO
