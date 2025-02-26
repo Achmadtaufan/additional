@@ -5,3 +5,25 @@
  join MS_SENDRPTSCHEDULE s (nolock) on s.REPORTID = m.REPORTID  
  cross apply string_split(s.[HOUR],';') h   
  where m.REPORTID = '753'  
+
+
+SELECT 
+    -- Send hour from, converted to float from the string value
+    sendhourfrom = CONVERT(FLOAT, h.value),  
+    
+    -- Send hour to, 1 hour ahead of sendhourfrom
+    sendhourto = CONVERT(FLOAT, h.value) + 1.0,  -- Menambahkan 1 jam ke sendhourfrom
+    
+    -- Report ID
+    m.REPORTID  
+
+FROM 
+    [MS_SENDRPTCONFIG] m (NOLOCK)   -- Report configuration table with NOLOCK for performance
+JOIN 
+    MS_SENDRPTSCHEDULE s (NOLOCK)   -- Report schedule table with NOLOCK
+    ON s.REPORTID = m.REPORTID    -- Join condition on REPORTID
+CROSS APPLY 
+    STRING_SPLIT(s.[HOUR], ';') h  -- Split the HOUR column by semicolon (;) into rows
+
+WHERE 
+    m.REPORTID = '753';  -- Filter the results for a specific report ID
