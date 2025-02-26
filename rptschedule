@@ -1,24 +1,7 @@
-SELECT 
-    -- Send hour from, diubah menjadi tipe data TIME
-    sendhourfrom = CONVERT(TIME, 
-                           RIGHT('00' + CAST(CAST(h.value AS INT) / 100 AS VARCHAR(2)), 2) + ':' + 
-                           RIGHT('00' + CAST(CAST(h.value AS INT) % 100 AS VARCHAR(2)), 2)),
-
-    -- Send hour to, 30 menit setelah sendhourfrom
-    sendhourto = CONVERT(TIME, 
-                         RIGHT('00' + CAST(CAST(h.value AS INT) / 100 AS VARCHAR(2)), 2) + ':' + 
-                         RIGHT('00' + CAST(((CAST(h.value AS INT) % 100) + 30) % 60 AS VARCHAR(2)), 2)),
-
-    -- Report ID
-    m.REPORTID  
-
-FROM 
-    [MS_SENDRPTCONFIG] m (NOLOCK)   -- Report configuration table with NOLOCK for performance
-JOIN 
-    MS_SENDRPTSCHEDULE s (NOLOCK)   -- Report schedule table with NOLOCK
-    ON s.REPORTID = m.REPORTID    -- Join condition on REPORTID
-CROSS APPLY 
-    STRING_SPLIT(s.[HOUR], ';') h  -- Split the HOUR column by semicolon (;) into rows
-
-WHERE 
-    m.REPORTID = '753';  -- Filter the results for a specific report ID
+ select   sendhourfrom = convert(float,h.value)  
+   ,sendhourto =  isnull(LEAD(convert(float,h.value)) over(partition by m.reportid order by m.reportid ,h.value)-0.01,23.45)  
+   ,m.REPORTID  
+ from [MS_SENDRPTCONFIG] m (nolock)   
+ join MS_SENDRPTSCHEDULE s (nolock) on s.REPORTID = m.REPORTID  
+ cross apply string_split(s.[HOUR],';') h   
+ where m.REPORTID = '627'  
