@@ -27,3 +27,27 @@ CROSS APPLY
 
 WHERE 
     m.REPORTID = '753';  -- Filter the results for a specific report ID
+
+
+
+SELECT 
+    -- Send hour from, diubah menjadi tipe data TIME
+    sendhourfrom = CONVERT(TIME, CAST(h.value AS VARCHAR(5))),
+
+    -- Send hour to, 30 menit setelah sendhourfrom
+    sendhourto = CONVERT(TIME, DATEADD(MINUTE, 30, CONVERT(TIME, CAST(h.value AS VARCHAR(5))))),
+
+    -- Report ID
+    m.REPORTID  
+
+FROM 
+    [MS_SENDRPTCONFIG] m (NOLOCK)   -- Report configuration table with NOLOCK for performance
+JOIN 
+    MS_SENDRPTSCHEDULE s (NOLOCK)   -- Report schedule table with NOLOCK
+    ON s.REPORTID = m.REPORTID    -- Join condition on REPORTID
+CROSS APPLY 
+    STRING_SPLIT(s.[HOUR], ';') h  -- Split the HOUR column by semicolon (;) into rows
+
+WHERE 
+    m.REPORTID = '753';  -- Filter the results for a specific report ID
+
