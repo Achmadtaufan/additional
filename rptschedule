@@ -1,0 +1,7 @@
+ select   sendhourfrom = convert(float,h.value)  
+   ,sendhourto =  isnull(LEAD(convert(float,h.value)) over(partition by m.reportid order by m.reportid ,h.value)-0.01,23.45)  
+   ,m.REPORTID  
+ from [MS_SENDRPTCONFIG] m (nolock)   
+ join MS_SENDRPTSCHEDULE s (nolock) on s.REPORTID = m.REPORTID  
+ cross apply string_split(s.[HOUR],';') h   
+ where m.REPORTID = '753'  
