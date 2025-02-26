@@ -5,3 +5,20 @@
  join MS_SENDRPTSCHEDULE s (nolock) on s.REPORTID = m.REPORTID  
  cross apply string_split(s.[HOUR],';') h   
  where m.REPORTID = '627'  
+
+
+SELECT  
+    sendhourfrom = CONVERT(float, h.value),
+    sendhourto = ISNULL(
+        LEAD(CONVERT(float, h.value)) OVER (PARTITION BY m.reportid ORDER BY m.reportid, h.value), -- Ambil waktu berikutnya
+        CONVERT(float, h.value) + 0.5 -- Jika tidak ada waktu berikutnya, tambah 30 menit ke sendhourfrom
+    ),
+    m.REPORTID
+FROM 
+    [MS_SENDRPTCONFIG] m (NOLOCK)
+JOIN 
+    MS_SENDRPTSCHEDULE s (NOLOCK) ON s.REPORTID = m.REPORTID  
+CROSS APPLY 
+    STRING_SPLIT(s.[HOUR], ';') h   
+WHERE 
+    m.REPORTID = '627';
