@@ -1,13 +1,13 @@
 SELECT 
     -- Send hour from, diubah menjadi tipe data TIME
     sendhourfrom = CONVERT(TIME, 
-                           RIGHT('00' + CAST(CAST(h.value AS INT) / 100 AS VARCHAR(2)), 2) + ':' + 
-                           RIGHT('00' + CAST(CAST(h.value AS INT) % 100 AS VARCHAR(2)), 2)),
+                           RIGHT('00' + LEFT(h.value, LEN(h.value) - 2), 2) + ':' + 
+                           RIGHT('00' + RIGHT(h.value, 2), 2)),
 
     -- Send hour to, 30 menit setelah sendhourfrom
     sendhourto = CONVERT(TIME, 
-                         RIGHT('00' + CAST(CAST(h.value AS INT) / 100 AS VARCHAR(2)), 2) + ':' + 
-                         RIGHT('00' + CAST(((CAST(h.value AS INT) % 100) + 30) % 60 AS VARCHAR(2)), 2)),
+                         RIGHT('00' + LEFT(h.value, LEN(h.value) - 2), 2) + ':' + 
+                         RIGHT('00' + CAST((CAST(RIGHT(h.value, 2) AS INT) + 30) % 60 AS VARCHAR(2)), 2)),
 
     -- Report ID
     m.REPORTID  
