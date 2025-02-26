@@ -7,7 +7,7 @@ SELECT
     -- Send hour to, 30 menit setelah sendhourfrom
     sendhourto = CONVERT(TIME, 
                          RIGHT('00' + CAST(CAST(h.value AS INT) / 100 AS VARCHAR(2)), 2) + ':' + 
-                         RIGHT('00' + CAST(CAST((h.value % 100) + 30) AS VARCHAR(2)), 2)),
+                         RIGHT('00' + CAST(((CAST(h.value AS INT) % 100) + 30) % 60 AS VARCHAR(2)), 2)),
 
     -- Report ID
     m.REPORTID  
