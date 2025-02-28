@@ -1,0 +1,19 @@
+WITH HourData AS (
+    SELECT 
+        convert(float, h.value) AS sendhourfrom,  
+        ROW_NUMBER() OVER (PARTITION BY m.reportid ORDER BY convert(float, h.value)) AS rn, -- Menambahkan urutan berdasarkan nilai hour
+        m.REPORTID  
+    FROM [MS_SENDRPTCONFIG] m (NOLOCK)   
+    JOIN MS_SENDRPTSCHEDULE s (NOLOCK) ON s.REPORTID = m.REPORTID  
+    CROSS APPLY STRING_SPLIT(s.[HOUR], ';') h   
+    WHERE m.REPORTID = 753
+)
+
+SELECT 
+    sendhourfrom,  
+    sendhourto = ISNULL(
+                    LEAD(sendhourfrom) OVER (PARTITION BY REPORTID ORDER BY rn) - 0.01,
+                    23.45
+                ),  
+    REPORTID  
+FROM HourData;
