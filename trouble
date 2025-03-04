@@ -1,0 +1,6 @@
+   select trx.POLICY_NUMBER,[Total Fund Value] =sum( ISNULL(trx.UNITS,0) *  ISNULL(fund.FUND_PRICE,0))  
+   from [DWH].[dbo].TR_UNITBALANCE trx with(nolock)   
+   left join dwh.dbo.LF_FUNDPRICE FUND (nolock) on fund.FUND_CODE = trx.FUND_CODE and   
+      trx.PERIOD_AS_OF   between fund.EFFECTIVE_FROM and fund.EFFECTIVE_TO   
+   where  trx.PERIOD_AS_OF = convert(Date,getdate()-1)  
+   group by POLICY_NUMBER  
