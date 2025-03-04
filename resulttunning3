@@ -1,0 +1,121 @@
+DECLARE @PERIOD_DTIME DATETIME, @reportdate VARCHAR(10), @BANK VARCHAR(50);
+
+SET @PERIOD_DTIME = CONVERT(DATETIME, @reportdate);
+
+-- Drop temporary and existing tables if they exist
+IF OBJECT_ID('REPORT_QNB_LAPSE_UAT', 'U') IS NOT NULL
+    DROP TABLE REPORT_QNB_LAPSE_UAT;
+
+IF OBJECT_ID('TEMPDB..#AGT', 'U') IS NOT NULL
+    DROP TABLE #AGT;
+
+-- Creating temporary table #AGT
+SELECT DA.AGENT_ID,
+       BANKSTAFFCODE = DA.BUSINESS_CODE,
+       DA.AGENT_NAME,
+       OUTLET_ID = DA.SALESOFFICE_CODE,
+       OUTLET_CODE = OUTLET.BUSINESS_CODE,
+       OUTLET_NAME = OUTLET.AGENT_NAME,
+       CLUSTER_ID = CLUSTER.AGENT_ID,
+       CLUSTER_CODE = CLUSTER.BUSINESS_CODE,
+       CLUSTER_NAME = CLUSTER.AGENT_NAME,
+       BM_CODE = bm.BUSINESS_CODE,
+       BM_NAME = bm.AGENT_NAME
+INTO #AGT
+FROM DM_AGENTS DA (NOLOCK)
+INNER JOIN DM_AGENTS OUTLET (NOLOCK) ON OUTLET.AGENT_ID = DA.SALESOFFICE_CODE
+LEFT JOIN DM_AGENTS CLUSTER (NOLOCK) ON CLUSTER.AGENT_ID = OUTLET.PARENT_SALESOFFICECODE
+LEFT JOIN DM_AGENTHIERARCHY dah (NOLOCK) ON dah.END_DATE IS NULL AND dah.AGENT_ID = DA.AGENT_ID
+LEFT JOIN DM_AGENTS BM (NOLOCK) ON BM.AGENT_ID = dah.PARENT_AGENT_ID
+WHERE 1 = 1;
+
+-- Main SELECT statement
+SELECT tbl.*
+INTO REPORT_QNB_LAPSE_UAT
+FROM (
+    SELECT DISTINCT
+           POL.POLICY_NUMBER [Policy No.],
+           [Owner Name] = LTRIM(RTRIM(LTRIM(RTRIM(PH.FIRST_NAME + ' ' + PH.MIDDLE_NAME) )+ ' ' + PH.SURNAME)),
+           [Insured Name] = LTRIM(RTRIM(LTRIM(RTRIM(LF.FIRST_NAME + ' ' + LF.MIDDLE_NAME) )+ ' ' + LF.SURNAME)),
+           [Product] = CASE WHEN hscount <> 0 THEN pol.PLAN_NAME + '-with HS' ELSE pol.PLAN_NAME END,
+           CASE WHEN POL.POLICY_STATUS = 'LA' THEN 'Lapse' ELSE ' ' END AS [Status polis],
+           CONVERT(DATE, CONVERT(VARCHAR, POL.COMMENCEMENT_DATE)) [Issue Date],
+           CONVERT(DATE, CONVERT(VARCHAR, POL.PAIDTODATE)) [Due Date],
+           CONVERT(DATE, CONVERT(VARCHAR, pol.STATUSDATE)) [Lapse Date],
+           POL.CURRENCY [Curr],
+           [Mod Prem] = pol.BASIC_PREMIUM + pol.TOPUP_PREMIUM,
+           [Basic Premi] = pol.BASIC_PREMIUM,
+           [Top Up Regular] = CASE WHEN pol.BILLING_FREQ <> '00' THEN pol.TOPUP_PREMIUM ELSE 0 END,
+           [Agent Code] = CASE WHEN CAMPAIGN = 'EC0034' THEN '30000006' ELSE PRD_AGT.AGENT_ID END,
+           [Agent Name] = CASE WHEN CAMPAIGN = 'EC0034' THEN 'ECOMMERCE AGENT' ELSE PRD_AGT.AGENT_NAME END,
+           [Branch Code] = AGT.OUTLET_CODE,
+           [Branch Name] = AGT.OUTLET_NAME,
+           [Frequency] = CASE 
+                           WHEN pol.BILLING_FREQ = '00' THEN '1'
+                           WHEN pol.BILLING_FREQ = '02' THEN 'S'
+                           WHEN pol.BILLING_FREQ = '04' THEN 'Q'
+                           WHEN pol.BILLING_FREQ = '01' THEN 'A'
+                           WHEN pol.BILLING_FREQ = '12' THEN 'M'
+                         END,
+           [Policy Year] = DATEDIFF(year, CONVERT(DATE, CONVERT(VARCHAR, POL.COMMENCEMENT_DATE)), GETDATE()),
+           [Lapse Status] = ' ',
+           [Total Fund Value] = ISNULL(trx.[Total Fund Value], 0),
+           [CIF PTBC] = POL.CIF_NO,
+           BM_CODE = CASE WHEN CAMPAIGN = 'EC0034' THEN 'CBA01' ELSE agt.BM_CODE END,
+           BM_NAME = CASE WHEN CAMPAIGN = 'EC0034' THEN 'Head of Comm Bank' ELSE agt.BM_NAME END,
+           [AO Code] = UPPER(RIGHT('00000' + AGT.BANKSTAFFCODE, 5)),
+           [AO Name] = CASE WHEN CAMPAIGN = 'ec0034' THEN 'Bank Commonwealth' ELSE AGT.AGENT_NAME END
+    FROM tr_POLICY POL (NOLOCK)
+    LEFT JOIN (SELECT COUNT(*) hscount, policy_number FROM TR_POLICYPRODUCT (NOLOCK) WHERE plan_code_basic = 'fwbl' AND plan_code LIKE '%HS%' GROUP BY policy_number) cnt
+        ON cnt.policy_number = POL.policy_number
+    LEFT JOIN (
+        SELECT trx.POLICY_NUMBER, [Total Fund Value] = SUM(ISNULL(trx.UNITS, 0) * ISNULL(fund.FUND_PRICE, 0))
+        FROM [DWH].[dbo].TR_UNITBALANCE trx WITH (NOLOCK)
+        LEFT JOIN dwh.dbo.LF_FUNDPRICE FUND (NOLOCK) ON fund.FUND_CODE = trx.FUND_CODE 
+        AND trx.PERIOD_AS_OF BETWEEN fund.EFFECTIVE_FROM AND fund.EFFECTIVE_TO
+        WHERE trx.PERIOD_AS_OF = CONVERT(DATE, GETDATE() - 1)
+        GROUP BY POLICY_NUMBER
+    ) trx ON POL.POLICY_NUMBER = trx.POLICY_NUMBER
+    LEFT JOIN dwh.dbo.Lf_CLIENT ph WITH (NOLOCK) ON pol.CLIENT_ID = ph.CLIENT_ID
+    LEFT JOIN dwh.dbo.Lf_CLIENT lf WITH (NOLOCK) ON pol.INSURED_ID = lf.CLIENT_ID
+    INNER JOIN #AGT AGT ON AGT.AGENT_ID = POL.REFERRAL_CODE
+    INNER JOIN #AGT PRD_AGT ON PRD_AGT.AGENT_ID = POL.PRODUCINGAGENT_ID
+    WHERE 1 = 1
+    AND pol.POLICY_STATUS = 'LA'
+    AND TRY_CONVERT(DATE, CAST(pol.STATUSDATE AS VARCHAR(8))) BETWEEN CONVERT(DATE, DATEADD(YY, DATEDIFF(YY, 0, @PERIOD_DTIME), 0))
+    AND CONVERT(DATE, @PERIOD_DTIME)
+    AND TRY_CONVERT(DATE, CAST(pol.STATUSDATE AS VARCHAR(8))) IS NOT NULL
+    AND (POL.REFERRAL_CODE LIKE 'QNB%' OR POL.REFERRAL_CODE LIKE 'CTB%')
+    AND (pol.CHANNEL_CODE = 'banca' OR pol.CAMPAIGN = 'EC0034')
+) tbl;
+
+-- Final Select Statement
+IF (SELECT COUNT(*) FROM REPORT_QNB_LAPSE_UAT) > 0
+BEGIN
+    SELECT * FROM REPORT_QNB_LAPSE_UAT;
+END
+ELSE
+BEGIN
+    SELECT 
+        [Policy No.] = NULL,
+        [Owner Name] = NULL,
+        [Insured Name] = NULL,
+        [Due Date] = NULL,
+        [Status polis] = NULL,
+        [Issue Date] = NULL,
+        [Lapse Date] = NULL,
+        [Curr] = NULL,
+        [Mod Prem] = NULL,
+        [Basic Premi] = NULL,
+        [Top Up Regular] = NULL,
+        [Agent Code] = NULL,
+        [Agent Name] = NULL,
+        [Branch Code] = NULL,
+        [Branch Name] = NULL,
+        [Frequency] = NULL,
+        [Policy Year] = NULL,
+        [Nilai Fund] = NULL,
+        [Lapse Status] = NULL,
+        [Total Fund Value] = NULL,
+        [CIF PTBC] = NULL;
+END;
