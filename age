@@ -1,0 +1,17 @@
+SELECT 
+    clientid, 
+    birthdate, 
+    issueddt, 
+    DATEDIFF(YEAR, 
+             CONVERT(DATE, birthdate, 112), 
+             CONVERT(DATE, CAST(issueddt AS CHAR(8)), 112)) 
+    - CASE 
+        WHEN DATEADD(YEAR, DATEDIFF(YEAR, CONVERT(DATE, birthdate, 112), 
+                                    CONVERT(DATE, CAST(issueddt AS CHAR(8)), 112)), 
+                     CONVERT(DATE, birthdate, 112)) 
+             > CONVERT(DATE, CAST(issueddt AS CHAR(8)), 112) 
+        THEN 1 
+        ELSE 0 
+      END 
+    AS age_at_issue
+FROM your_table;
