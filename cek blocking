@@ -1,0 +1,16 @@
+SELECT 
+    blocking.session_id AS BlockingSessionID,
+    blocking.host_name AS BlockingHost,
+    blocking.program_name AS BlockingProgram,
+    blocking.login_name AS BlockingUser,
+    blocked.session_id AS BlockedSessionID,
+    blocked.host_name AS BlockedHost,
+    blocked.program_name AS BlockedProgram,
+    blocked.login_name AS BlockedUser,
+    blocked.wait_type AS BlockedWaitType,
+    blocked.wait_time AS BlockedWaitTime_ms,
+    blocked.wait_resource AS BlockedResource
+FROM sys.dm_exec_requests blocked
+JOIN sys.dm_exec_sessions blocking 
+    ON blocked.blocking_session_id = blocking.session_id
+WHERE blocked.blocking_session_id <> 0;
