@@ -1,0 +1,9 @@
+DECLARE @JOBNAME VARCHAR(MAX)
+
+SELECT STUFF(STUFF(RIGHT('000000' + CAST(AVG(h.run_duration) AS VARCHAR(6)), 6), 5, 0, ':'), 3, 0, ':') AVG_JOBRUNTIME FROM 
+    sysjobs j
+INNER JOIN 
+    sysjobhistory h ON j.job_id = h.job_id
+WHERE 
+    j.name = @JOBNAME  -- COMMENT/UNCOMMENT SET @JOBNAME 
+    AND h.step_id = 0
