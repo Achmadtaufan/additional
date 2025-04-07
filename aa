@@ -1,0 +1,69 @@
+<?php
+include("inc_err.php");
+include("server_dwh.php");
+include("lib.php");
+session_start();
+include("auth.php");
+
+set_time_limit(60*10);
+$uploadby=$_SESSION["reporttools_userid"];
+$file_excel=$_FILES["file_excel"]["name"];
+if ($_FILES["file_excel"]["error"] == 0) 
+    {
+		$file_excel_tmp=$_FILES["file_excel"]["tmp_name"];
+		move_uploaded_file($file_excel_tmp,"uploads/$file_excel");
+		save_to_db("uploads/$file_excel");
+    }
+//header("location:report.php?group_name=CUSTOMER%20SERVICE&report_id=279");
+
+function save_to_db($fname)
+{
+global $myconn;
+global $uploadby;
+global $file_excel;
+require_once 'SimpleXLSX.php';
+if ( $xlsx = SimpleXLSX::parse($fname) ) {
+  $arr=array();
+  $arr=$xlsx->rows();
+  $n=count($arr);
+  //echo "n=$n<br>";
+  
+  	$strsql2="IF OBJECT_ID('RF_OJK_CURRENCY') IS NOT NULL    
+				   TRUNCATE TABLE RF_OJK_CURRENCY
+				ELSE
+				CREATE TABLE [dbo].[RF_OJK_CURRENCY](
+				[ID] [bigint] IDENTITY(1,1) NOT NULL,
+				[CURRENCY] [varchar](10) NULL,
+				[CURRENCY VALUE] [decimal](28, 10) NULL,
+				[PERIODE] [varchar](10) NULL,
+				[SYSTEM_UPDATEDATE] [datetime] NULL,
+				[USERID] [varchar](10) NULL)";
+	odbc_exec($myconn,$strsql2) or die(odbc_error()); 
+	
+//$strsql6="TRUNCATE TABLE VALIDASI_AG_TARGETMDRT";
+//$rs1=odbc_exec($myconn,$strsql6) or die(odbc_error()); 
+
+	
+ for($i=1;$i<$n;$i++)
+  {
+    $PERIODE=$arr[$i][0];
+	$CURRENCY=$arr[$i][1];
+	$AMOUNT=$arr[$i][2];
+  
+    $strsql3="INSERT INTO RF_OJK_CURRENCY VALUES('$CURRENCY','$AMOUNT','$PERIODE',GETDATE(),'$uploadby')";
+    $rs=odbc_exec($myconn,$strsql3) or die(odbc_error());           
+  }
+  
+  
+  $strsql5="INSERT INTO LOG_UPLOAD_REPORT VALUES ('UPLOAD OJK CURRENCY','MAINTENANCE','$uploadby',(SELECT COUNT('') FROM RF_OJK_CURRENCY),'$file_excel',GETDATE())";
+  odbc_exec($myconn,$strsql5) or die(odbc_error());
+  
+
+
+} else {
+  echo SimpleXLSX::parseError();
+} 
+  print("<h3>UPLOAD SUCCESS !!!</h3>");
+}
+?>
+
