@@ -1,0 +1,39 @@
+DECLARE @MailSubject NVARCHAR(300) = 'Agency FYC';
+DECLARE @TargetEmail NVARCHAR(100);
+
+-- Temp table list email yang mau dihapus
+DECLARE @TargetEmails TABLE (Email NVARCHAR(100));
+INSERT INTO @TargetEmails (Email)
+VALUES 
+('erwin.irawan@fwd.com'),
+('cece@cc.id'),
+('cucu@cc.id');
+
+-- Cursor untuk looping setiap target email
+DECLARE email_cursor CURSOR FOR
+SELECT Email FROM @TargetEmails;
+
+OPEN email_cursor;
+FETCH NEXT FROM email_cursor INTO @TargetEmail;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    UPDATE MS_SENDRPTCONFIG
+    SET 
+        [MAILto]  = LTRIM(RTRIM(REPLACE(REPLACE(REPLACE([MAILto],  @TargetEmail + ';', ''), ';' + @TargetEmail, ''), @TargetEmail, ''))),
+        [MAILcc]  = LTRIM(RTRIM(REPLACE(REPLACE(REPLACE([MAILcc],  @TargetEmail + ';', ''), ';' + @TargetEmail, ''), @TargetEmail, ''))),
+        [MAILbcc] = LTRIM(RTRIM(REPLACE(REPLACE(REPLACE([MAILbcc], @TargetEmail + ';', ''), ';' + @TargetEmail, ''), @TargetEmail, '')))
+    WHERE 
+        (MAILSUBJECT = @MailSubject OR RDLREPORTS = @MailSubject)
+        AND ISACTIVE = 'Y'
+        AND (
+            MAILto LIKE '%' + @TargetEmail + '%'
+         OR MAILcc LIKE '%' + @TargetEmail + '%'
+         OR MAILbcc LIKE '%' + @TargetEmail + '%'
+        );
+
+    FETCH NEXT FROM email_cursor INTO @TargetEmail;
+END
+
+CLOSE email_cursor;
+DEALLOCATE email_cursor;
