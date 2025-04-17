@@ -1,17 +1,8 @@
 DECLARE @TargetEmail NVARCHAR(100) = 'cece@cc.id';
 
--- Daftar reportname yang ingin ditarget
 UPDATE ReportEmail
 SET 
-    [to]  = LTRIM(RTRIM(REPLACE([to], @TargetEmail + ';', ''))),
-    [to]  = LTRIM(RTRIM(REPLACE([to], ';' + @TargetEmail, ''))),
-    [to]  = LTRIM(RTRIM(REPLACE([to], @TargetEmail, ''))),
-
-    [cc]  = LTRIM(RTRIM(REPLACE([cc], @TargetEmail + ';', ''))),
-    [cc]  = LTRIM(RTRIM(REPLACE([cc], ';' + @TargetEmail, ''))),
-    [cc]  = LTRIM(RTRIM(REPLACE([cc], @TargetEmail, ''))),
-
-    [bcc] = LTRIM(RTRIM(REPLACE([bcc], @TargetEmail + ';', ''))),
-    [bcc] = LTRIM(RTRIM(REPLACE([bcc], ';' + @TargetEmail, ''))),
-    [bcc] = LTRIM(RTRIM(REPLACE([bcc], @TargetEmail, '')))
+    [to]  = LTRIM(RTRIM(REPLACE(REPLACE(REPLACE([to], @TargetEmail + ';', ''), ';' + @TargetEmail, ''), @TargetEmail, ''))),
+    [cc]  = LTRIM(RTRIM(REPLACE(REPLACE(REPLACE([cc], @TargetEmail + ';', ''), ';' + @TargetEmail, ''), @TargetEmail, ''))),
+    [bcc] = LTRIM(RTRIM(REPLACE(REPLACE(REPLACE([bcc], @TargetEmail + ';', ''), ';' + @TargetEmail, ''), @TargetEmail, '')))
 WHERE reportname IN ('Sales_Report', 'Finance_Report');
