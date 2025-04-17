@@ -1,0 +1,9 @@
+DECLARE @TargetEmail NVARCHAR(100) = 'erwin.irawan@fwd.com',
+@MailSubject NVARCHAR(300)= 'Agency FYC'
+UPDATE MS_SENDRPTCONFIG
+SET 
+    [MAILto]  = LTRIM(RTRIM(REPLACE(REPLACE(REPLACE([MAILto], @TargetEmail + ';', ''), ';' + @TargetEmail, ''), @TargetEmail, ''))),
+    [MAILcc]  = LTRIM(RTRIM(REPLACE(REPLACE(REPLACE([MAILcc], @TargetEmail + ';', ''), ';' + @TargetEmail, ''), @TargetEmail, ''))),
+    [MAILbcc] = LTRIM(RTRIM(REPLACE(REPLACE(REPLACE([MAILbcc], @TargetEmail + ';', ''), ';' + @TargetEmail, ''), @TargetEmail, '')))
+
+WHERE (MAILSUBJECT =@MailSubject OR RDLREPORTS=@MailSubject) AND ISACTIVE='Y' 
