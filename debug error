@@ -1,0 +1,45 @@
+$data = [];
+$hashSet = [];
+
+for ($i = 1; $i < $n; $i++) {
+    $plan_code = trim($arr[$i][0]);
+    $plan_name = trim($arr[$i][1]);
+    $liniusaha = trim($arr[$i][2]);
+    $ojk_code = trim($arr[$i][3]);
+
+    // Buat hash unik berdasarkan plan_code + ojk_code
+    $hashKey = $plan_code . '|' . $ojk_code;
+
+    // Skip kalau duplikat
+    if (isset($hashSet[$hashKey])) {
+        continue;
+    }
+
+    $hashSet[$hashKey] = true;
+
+    $data[] = "('$plan_code', '$plan_name', '$liniusaha', '$ojk_code', GETDATE(), '$uploadby')";
+}
+
+if (!empty($data)) {
+    $values = implode(",\n", $data);
+
+    $sql = "
+    MERGE INTO rf_ojk_liniusaha AS target
+    USING (
+        VALUES 
+        $values
+    ) AS source (plan_code, plan_name, liniusaha, [ojk code], system_updatedate, userid)
+    ON target.plan_code = source.plan_code AND target.[ojk code] = source.[ojk code]
+    WHEN MATCHED THEN 
+        UPDATE SET 
+            plan_name = source.plan_name,
+            liniusaha = source.liniusaha,
+            system_updatedate = GETDATE(),
+            userid = source.userid
+    WHEN NOT MATCHED THEN
+        INSERT (plan_code, plan_name, liniusaha, [ojk code], system_updatedate, userid)
+        VALUES (source.plan_code, source.plan_name, source.liniusaha, source.[ojk code], source.system_updatedate, source.userid);
+    ";
+
+    odbc_exec($myconn, $sql) or die(odbc_errormsg($myconn));
+}
