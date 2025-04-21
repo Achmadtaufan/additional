@@ -1,0 +1,96 @@
+<?php
+include("inc_err.php");
+include("server_dwh.php");
+include("lib.php");
+session_start();
+include("auth.php");
+
+set_time_limit(60 * 10);
+$uploadby = $_SESSION["reporttools_userid"];
+$file_excel = $_FILES["file_excel"]["name"];
+$file_ext = strtolower(pathinfo($file_excel, PATHINFO_EXTENSION));
+
+if ($_FILES["file_excel"]["error"] == 0) {
+    // Validasi file harus berupa Excel
+    if ($file_ext != "xlsx" && $file_ext != "xls") {
+        echo "<h3 style='color:red;'>ERROR: File harus berupa Excel (.xlsx atau .xls)</h3>";
+        exit();
+    }
+
+    $file_excel_tmp = $_FILES["file_excel"]["tmp_name"];
+    move_uploaded_file($file_excel_tmp, "uploads/$file_excel");
+    save_to_db("uploads/$file_excel");
+}
+
+function save_to_db($fname)
+{
+    global $myconn;
+    global $uploadby;
+    global $file_excel;
+    require_once 'SimpleXLSX.php';
+
+    if ($xlsx = SimpleXLSX::parse($fname)) {
+        $arr = $xlsx->rows();
+        $n = count($arr);
+
+        $data = [];
+		$hashSet = [];
+
+        // Loop untuk mengambil data dari excel mulai dari baris ke-2 (karena baris pertama biasanya header)
+        for ($i = 1; $i < $n; $i++) {
+			$PLANCODE=$arr[$i][0];
+			$PLANNAME=$arr[$i][1];
+			$LINIUSAHA=$arr[$i][2];
+			$OJKCODE=$arr[$i][3];
+			
+			// buat hash unik berdasarkan plan_code dan ojk CODE
+			$hashkey= $PLAN_CODE . '|' . $OJKCODE;
+			
+			if (isset($hashSet[$hashkey])) {
+				continue;
+			}
+			
+			$hashSet[$hashkey]=true;
+			
+			$data[] = "('$plan_code', '$plan_name', '$liniusaha', '$ojk_code', GETDATE(), '$uploadby')";
+		}
+			
+
+        // Jika ada data valid untuk diupload
+        if (!empty($data)) > 0) {
+            // Menggabungkan data menjadi satu string untuk digunakan dalam query SQL
+            $values = implode(",\n", $data);
+
+            // Query MERGE untuk update atau insert
+            $mergeSQL = "
+            MERGE INTO RF_OJK_LINIUSAHA_ACT_DEV_20250422 AS target
+            USING (
+                VALUES 
+                $values
+            ) AS source (PLAN_CODE, PLAN_NAME, [LINI USAHA], [OJK CODE], SYSTEM_UPDATEDATE, USERID)
+            ON target.PLAN_CODE = source.PLAN_CODE AND target.[OJK CODE] = source.[OJK CODE]
+            WHEN MATCHED THEN
+                UPDATE SET
+					target.PLAN_NAME=source.PLAN_NAME,
+					target.[LINI USAHA]=source.[LINI USAHA],
+                    target.SYSTEM_UPDATEDATE = GETDATE(),
+                    target.USERID = '$uploadby'
+            WHEN NOT MATCHED THEN
+                INSERT (PLAN_CODE, PLAN_NAME, [LINI USAHA], [OJK CODE], SYSTEM_UPDATEDATE, USERID)
+                VALUES (source.PLAN_CODE, source.PLAN_NAME, source.[LINI USAHA],source.[OJK CODE], GETDATE(), '$uploadby');";
+
+            // Menjalankan query
+            odbc_exec($myconn, $mergeSQL) or die(odbc_error());
+			
+		$strsql6="Exec INSERT_REPORT_OJK_LINIUSAHA_TES";
+		odbc_exec($myconn,$strsql6) or die(odbc_error());
+
+            echo "<h3>UPLOAD DAN UPDATE BERHASIL!</h3>";
+        } else {
+            echo "<h3 style='color:red;'>Tidak ada data valid untuk diupload.</h3>";
+        }
+    } else {
+        echo "<h3 style='color:red;'>Gagal membaca file Excel: " . SimpleXLSX::parseError() . "</h3>";
+    }
+}
+?>
