@@ -1,0 +1,2 @@
+Warning: odbc_exec(): SQL error: [Microsoft][ODBC SQL Server Driver][SQL Server]The MERGE statement attempted to UPDATE or DELETE the same row more than once. This happens when a target row matches more than one source row. A MERGE statement cannot UPDATE/DELETE the same row of the target table multiple times. Refine the ON clause to ensure a target row matches at most one source row, or use the GROUP BY clause to group the source rows., SQL state 37000 in SQLExecDirect in D:\xampp7421\htdocs\reporttools\main\Report_OJK_LiniUsaha_doupload.php on line 77
+37000
