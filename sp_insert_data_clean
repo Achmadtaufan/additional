@@ -1,0 +1,38 @@
+CREATE PROCEDURE sp_insert_to_data_clean
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @maxNo INT;
+
+    -- Ambil clientid terakhir (angka) dari ztemp_data_clean
+    SELECT @maxNo = 
+        ISNULL(MAX(CAST(SUBSTRING(clientid, 2, LEN(clientid)) AS INT)), 0)
+    FROM ztemp_data_clean;
+
+    -- Proses satu per satu data dari ztemp_tampungdata
+    INSERT INTO ztemp_data_clean (
+        polnum, role, clientid, clientname, birthdate, gender, identityno, address, mobilenum
+    )
+    SELECT 
+        z.polnum,
+        z.role,
+        'B' + RIGHT('0000000' + CAST(ROW_NUMBER() OVER (ORDER BY z.polnum, z.role, z.clientname) + @maxNo AS VARCHAR), 7) AS clientid,
+        z.clientname,
+        z.birthdate,
+        z.gender,
+        z.identityno,
+        z.address,
+        z.mobilenum
+    FROM ztemp_tampungdata z
+    WHERE NOT EXISTS (
+        SELECT 1 FROM ztemp_data_clean c
+        WHERE 
+            c.polnum = z.polnum
+            AND c.role = z.role
+            AND ISNULL(c.clientname, '') = ISNULL(z.clientname, '')
+            AND ISNULL(CONVERT(VARCHAR, c.birthdate, 120), '') = ISNULL(CONVERT(VARCHAR, z.birthdate, 120), '')
+            AND ISNULL(c.gender, '') = ISNULL(z.gender, '')
+            AND ISNULL(c.identityno, '') = ISNULL(z.identityno, '')
+    );
+END;
