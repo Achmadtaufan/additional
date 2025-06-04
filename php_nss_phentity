@@ -1,0 +1,114 @@
+<?php
+include("inc_err.php");
+include("server_dwh.php"); // koneksi ODBC: $myconn
+include("lib.php");
+session_start();
+include("auth.php");
+
+set_time_limit(60 * 10);
+$uploadby = $_SESSION["reporttools_userid"];
+$file_excel = $_FILES["file_excel"]["name"];
+$file_ext = strtolower(pathinfo($file_excel, PATHINFO_EXTENSION));
+
+if ($_FILES["file_excel"]["error"] == 0) {
+    if ($file_ext != "xlsx" && $file_ext != "xls") {
+        echo "<h3 style='color:red;'>ERROR: File harus berupa Excel (.xlsx atau .xls)</h3>";
+        exit();
+    }
+
+    $file_excel_tmp = $_FILES["file_excel"]["tmp_name"];
+    move_uploaded_file($file_excel_tmp, "uploads/$file_excel");
+    save_to_db("uploads/$file_excel");
+}
+
+function save_to_db($fname)
+{
+    global $myconn;
+    global $uploadby;
+    global $file_excel;
+
+    require_once 'SimpleXLSX.php';
+
+    if ($xlsx = SimpleXLSX::parse($fname)) {
+        $arr = $xlsx->rows();
+        $n = count($arr);
+
+        // 1. Truncate table tampungan
+        $truncate = "TRUNCATE TABLE ztemp_tampungdata";
+        odbc_exec($myconn, $truncate);
+
+        // 2. Insert data dari Excel
+        $sql = "INSERT INTO ztemp_tampungdata 
+        (polnum, role, clientname, birthdate, gender, identityno, address, mobilenum)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        $stmt = odbc_prepare($myconn, $sql);
+
+        for ($i = 1; $i < $n; $i++) {
+            $row = $arr[$i];
+
+            $polnum = trim($row[0] ?? '');
+            $role = trim($row[1] ?? '');
+            $clientname = trim($row[2] ?? '');
+            $birthdate = trim($row[3] ?? '');
+            $gender = trim($row[4] ?? '');
+            $identityno = trim($row[5] ?? '');
+            $address = trim($row[6] ?? '');
+            $mobilenum = trim($row[7] ?? '');
+
+            if ($polnum == '' && $role == '') continue;
+
+            $birthdateFormatted = ($birthdate != '') ? $birthdate : null;
+
+            $params = [
+                $polnum,
+                $role,
+                $clientname,
+                $birthdateFormatted,
+                $gender,
+                $identityno,
+                $address,
+                $mobilenum
+            ];
+
+            $exec = odbc_execute($stmt, $params);
+            if (!$exec) {
+                echo "<h3 style='color:red;'>Gagal insert data baris ke-" . ($i + 1) . ": " . odbc_errormsg() . "</h3>";
+                exit();
+            }
+        }
+
+        // 3. Jalankan stored procedure validasi
+        $sp = "{CALL sp_validasi_upload_excel()}";
+        $result = odbc_exec($myconn, $sp);
+        $errors = [];
+
+        while (odbc_fetch_row($result)) {
+            $errors[] = odbc_result($result, "ErrorMessage");
+        }
+
+        if (count($errors) > 0) {
+            echo "<h3 style='color:red;'>Terdapat kesalahan validasi:</h3><ul>";
+            foreach ($errors as $err) {
+                echo "<li>$err</li>";
+            }
+            echo "</ul>";
+            exit();
+        }
+
+        // 4. Jalankan insert ke ztemp_data_clean
+        $insertSP = "{CALL sp_insert_to_data_clean()}";
+        $execInsert = odbc_exec($myconn, $insertSP);
+
+        if (!$execInsert) {
+            echo "<h3 style='color:red;'>Gagal insert ke data clean: " . odbc_errormsg() . "</h3>";
+            exit();
+        }
+
+        // 5. Selesai, tidak ada pesan kalau berhasil
+        // echo "<h3>Upload dan proses data selesai.</h3>"; // Jika kamu ingin info sukses, bisa uncomment ini
+
+    } else {
+        echo "<h3 style='color:red;'>Gagal membaca file Excel: " . SimpleXLSX::parseError() . "</h3>";
+    }
+}
+?>v
