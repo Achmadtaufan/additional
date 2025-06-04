@@ -1,0 +1,31 @@
+CREATE PROCEDURE sp_validasi_upload_excel
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Temp table untuk simpan hasil error
+    CREATE TABLE #ValidationErrors (
+        ErrorMessage VARCHAR(255)
+    );
+
+    -- 1. Validasi POLNUM
+    INSERT INTO #ValidationErrors (ErrorMessage)
+    SELECT 'Policy number ' + t.polnum + ' not exists'
+    FROM ztemp_tampungdata t
+    LEFT JOIN tr_policy p ON t.polnum = p.polnum
+    WHERE p.polnum IS NULL
+    GROUP BY t.polnum;
+
+    -- 2. Validasi ROLE
+    INSERT INTO #ValidationErrors (ErrorMessage)
+    SELECT 'Role ' + t.role + ' doesn''t exist'
+    FROM ztemp_tampungdata t
+    LEFT JOIN la_itemdesc l ON l.itemtable = 'ph_entity' AND t.role = l.longdesc
+    WHERE l.longdesc IS NULL
+    GROUP BY t.role;
+
+    -- Return error jika ada
+    SELECT * FROM #ValidationErrors;
+
+    DROP TABLE #ValidationErrors;
+END;
