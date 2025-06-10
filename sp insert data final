@@ -1,0 +1,34 @@
+CREATE PROCEDURE sp_insert_to_data_clean
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @maxNo INT;
+    SELECT @maxNo = ISNULL(MAX(CAST(SUBSTRING(clientid, 2, LEN(clientid)) AS INT)), 0)
+    FROM temp_lfclientrole;
+
+    -- Tetap akan error jika ada duplikasi karena PK di temp_lfclientrole
+    INSERT INTO temp_lfclientrole (clientid, clientname, birthdate, gender, identityno, address, mobilenum)
+    SELECT
+        'B' + RIGHT('0000000' + CAST(ROW_NUMBER() OVER (ORDER BY z.clientname, z.birthdate, z.gender, z.identityno) + @maxNo AS VARCHAR), 7) AS clientid,
+        z.clientname,
+        z.birthdate,
+        z.gender,
+        z.identityno,
+        z.address,
+        z.mobilenum
+    FROM ztemp_tampungdata z;
+
+    -- Insert ke temp_lfpolicyrole juga tanpa cek exist
+    INSERT INTO temp_lfpolicyrole (polnum, role, clientid)
+    SELECT
+        z.polnum,
+        z.role,
+        c.clientid
+    FROM ztemp_tampungdata z
+    JOIN temp_lfclientrole c
+        ON ISNULL(c.clientname, '') = ISNULL(z.clientname, '')
+        AND ISNULL(CONVERT(VARCHAR, c.birthdate, 120), '') = ISNULL(CONVERT(VARCHAR, z.birthdate, 120), '')
+        AND ISNULL(c.gender, '') = ISNULL(z.gender, '')
+        AND ISNULL(c.identityno, '') = ISNULL(z.identityno, '');
+END;
