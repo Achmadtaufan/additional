@@ -1,0 +1,76 @@
+<?php
+include("inc_err.php");
+include("server_dwh.php");
+include("lib.php");
+session_start();
+include("auth.php");
+
+set_time_limit(60*10);
+$uploadby=$_SESSION["reporttools_userid"];
+$file_excel=$_FILES["file_excel"]["name"];
+if ($_FILES["file_excel"]["error"] == 0) 
+    {
+		$file_excel_tmp=$_FILES["file_excel"]["tmp_name"];
+		move_uploaded_file($file_excel_tmp,"uploads/$file_excel");
+		save_to_db("uploads/$file_excel");
+    }
+//header("location:report.php?group_name=CUSTOMER%20SERVICE&report_id=497");
+
+function save_to_db($fname)
+{
+global $myconn;
+global $uploadby;
+global $file_excel;
+require_once 'SimpleXLSX.php';
+if ( $xlsx = SimpleXLSX::parse($fname) ) {
+  $arr=array();
+  $arr=$xlsx->rows();
+  $n=count($arr);
+  //echo "n=$n<br>";
+  
+  	$strsql2="IF OBJECT_ID('STG_RF_OJK_LINIUSAHA') IS NOT NULL    
+				   TRUNCATE TABLE STG_RF_OJK_LINIUSAHA
+				ELSE
+				CREATE TABLE [dbo].[STG_RF_OJK_LINIUSAHA](
+				[ID] [bigint] IDENTITY(1,1) NOT NULL,
+				[PLAN_CODE] [varchar](4) NULL,
+				[PLAN_NAME] [varchar](max) NULL,
+				[LINI USAHA] [varchar](max) NULL,
+				[OJK CODE] [varchar](10) NULL,
+				[SYSTEM_UPDATEDATE] [datetime] NULL,
+				[USERID] [varchar](10) NULL)";
+	odbc_exec($myconn,$strsql2) or die(odbc_error()); 
+	
+//$strsql6="TRUNCATE TABLE VALIDASI_AG_TARGETMDRT";
+//$rs1=odbc_exec($myconn,$strsql6) or die(odbc_error()); 
+
+	
+ for($i=1;$i<$n;$i++)
+  {
+    $PLANCODE=$arr[$i][0];
+	$PLANNAME=$arr[$i][1];
+	$LINIUSAHA=$arr[$i][2];
+	$OJKCODE=$arr[$i][3];
+  
+    $strsql3="INSERT INTO STG_RF_OJK_LINIUSAHA VALUES('$PLANCODE','$PLANNAME','$LINIUSAHA','$OJKCODE',GETDATE(),'$uploadby')";
+    $rs=odbc_exec($myconn,$strsql3) or die(odbc_error());           
+  }
+  
+  $strsql4="Exec INSERT_STG_OJK_LINIUSAHA";
+  odbc_exec($myconn,$strsql4) or die(odbc_error());
+  
+  $strsql6="Exec INSERT_RF_OJK_LINIUSAHA";
+  odbc_exec($myconn,$strsql6) or die(odbc_error());
+  
+  //strsql5="INSERT INTO LOG_UPLOAD_REPORT VALUES ('UPLOAD OJK LINIUSAHA','MAINTENANCE','$uploadby',(SELECT COUNT('') FROM RF_OJK_LINIUSAHA),'$file_excel',GETDATE())";
+  //odbc_exec($myconn,$strsql5) or die(odbc_error());
+  
+
+
+} else {
+  echo SimpleXLSX::parseError();
+} 
+  print("<h3>UPLOAD SUCCESS !!!</h3>");
+}
+?>
+
