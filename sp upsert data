@@ -1,0 +1,24 @@
+CREATE PROCEDURE sp_upsert_lfpolicyrole_final
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Ambil clientid terbesar (paling tua) per kombinasi policynum + role
+    ;WITH MaxClient AS (
+        SELECT
+            policynum,
+            role,
+            MAX(clientid) AS clientid
+        FROM temp_lfpolicyrole
+        GROUP BY policynum, role
+    )
+    -- Lakukan UPSERT (update jika ada, insert jika tidak ada)
+    MERGE temp_lfpolicyrole_final AS target
+    USING MaxClient AS source
+        ON target.policynum = source.policynum AND target.role = source.role
+    WHEN MATCHED THEN
+        UPDATE SET target.clientid = source.clientid
+    WHEN NOT MATCHED THEN
+        INSERT (policynum, role, clientid)
+        VALUES (source.policynum, source.role, source.clientid);
+END;
