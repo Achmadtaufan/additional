@@ -1,0 +1,47 @@
+CREATE PROCEDURE sp_validasi_uploaddata
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validasi Policy Number
+    IF EXISTS (
+        SELECT 1
+        FROM ztemp_tampungdata z
+        WHERE NOT EXISTS (
+            SELECT 1 FROM tr_policy p WHERE p.polnum = z.polnum
+        )
+    )
+    BEGIN
+        DECLARE @invalidPolnum VARCHAR(50);
+        SELECT TOP 1 @invalidPolnum = z.polnum
+        FROM ztemp_tampungdata z
+        WHERE NOT EXISTS (
+            SELECT 1 FROM tr_policy p WHERE p.polnum = z.polnum
+        );
+        RAISERROR('Policy number %s not found', 16, 1, @invalidPolnum);
+        RETURN;
+    END;
+
+    -- Validasi Role
+    IF EXISTS (
+        SELECT 1
+        FROM ztemp_tampungdata z
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM la_itemdesc i
+            WHERE i.itemtable = 'ph_entity' AND i.longdesc = z.role
+        )
+    )
+    BEGIN
+        DECLARE @invalidRole VARCHAR(50);
+        SELECT TOP 1 @invalidRole = z.role
+        FROM ztemp_tampungdata z
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM la_itemdesc i
+            WHERE i.itemtable = 'ph_entity' AND i.longdesc = z.role
+        );
+        RAISERROR('Role %s not found', 16, 1, @invalidRole);
+        RETURN;
+    END;
+END;
