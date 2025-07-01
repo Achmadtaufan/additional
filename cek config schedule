@@ -1,0 +1,21 @@
+SELECT 
+    j.name AS JobName,
+    s.step_id,
+    s.step_name,
+    s.command,
+    j.enabled,
+    js.schedule_id,
+    sch.name AS ScheduleName,
+    sch.enabled AS ScheduleEnabled
+FROM 
+    msdb.dbo.sysjobs j
+INNER JOIN 
+    msdb.dbo.sysjobsteps s ON j.job_id = s.job_id
+LEFT JOIN 
+    msdb.dbo.sysjobschedules js ON j.job_id = js.job_id
+LEFT JOIN 
+    msdb.dbo.sysschedules sch ON js.schedule_id = sch.schedule_id
+WHERE 
+    s.command LIKE '%Oriente.config%'
+ORDER BY 
+    j.name, s.step_id;
