@@ -1,0 +1,2 @@
+Description: Executing the query "DECLARE @PDATE DATETIME,@SMS_TYPE VARCHAR(30)  SET ..." failed with the following error: 
+"Could not complete cursor operation because the table schema changed after the cursor was declared."
