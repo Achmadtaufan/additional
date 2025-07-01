@@ -1,0 +1,41 @@
+SELECT 
+    j.name AS JobName,
+    s.step_id,
+    s.step_name,
+    s.subsystem,
+    s.command,
+    -- Ekstrak nama package (kira-kira) dari command
+    CASE 
+        WHEN s.command LIKE '%/Package%' THEN
+            SUBSTRING(
+                s.command,
+                CHARINDEX('/Package', s.command) + 9,
+                CHARINDEX(' ', s.command + ' ', CHARINDEX('/Package', s.command) + 9) - (CHARINDEX('/Package', s.command) + 9)
+            )
+        WHEN s.command LIKE '%.dtsx%' THEN
+            SUBSTRING(
+                s.command,
+                CHARINDEX('.dtsx', s.command) - 
+                CHARINDEX('\', REVERSE(LEFT(s.command, CHARINDEX('.dtsx', s.command)))) + 2,
+                CHARINDEX('.dtsx', s.command) - 
+                (CHARINDEX('.dtsx', s.command) - 
+                 CHARINDEX('\', REVERSE(LEFT(s.command, CHARINDEX('.dtsx', s.command)))) + 2) + 5
+            )
+        ELSE NULL
+    END AS PackageName,
+    j.enabled AS JobEnabled,
+    sch.name AS ScheduleName,
+    sch.enabled AS ScheduleEnabled
+FROM 
+    msdb.dbo.sysjobs j
+INNER JOIN 
+    msdb.dbo.sysjobsteps s ON j.job_id = s.job_id
+LEFT JOIN 
+    msdb.dbo.sysjobschedules js ON j.job_id = js.job_id
+LEFT JOIN 
+    msdb.dbo.sysschedules sch ON js.schedule_id = sch.schedule_id
+WHERE 
+    s.command LIKE '%Oriente.config%'
+    AND (s.subsystem = 'SSIS' OR s.command LIKE '%.dtsx%' OR s.command LIKE '%dtexec%')
+ORDER BY 
+    j.name, s.step_id;
