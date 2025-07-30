@@ -1,0 +1,26 @@
+WITH PackageXml AS (
+    SELECT 
+        pk.package_name,
+        p.project_name,
+        f.folder_name,
+        t.objectname,
+        CAST(REPLACE(CAST(pk.package_data AS NVARCHAR(MAX)),
+                     'xmlns="www.microsoft.com/SqlServer/Dts"', '') AS XML) AS package_xml
+    FROM SSISDB.catalog.packages pk
+    JOIN SSISDB.catalog.projects p ON pk.project_id = p.project_id
+    JOIN SSISDB.catalog.folders f ON p.folder_id = f.folder_id
+    JOIN temp_object t 
+        ON CAST(pk.package_data AS NVARCHAR(MAX)) LIKE '%' + t.objectname + '%'
+)
+
+SELECT
+    x.folder_name,
+    x.project_name,
+    x.package_name,
+    x.objectname,
+    sqlTask.value('@ObjectName', 'nvarchar(255)') AS task_name,
+    sqlTask.value('(SqlStatementSource)[1]', 'nvarchar(max)') AS sql_command
+FROM PackageXml x
+CROSS APPLY x.package_xml.nodes('//Executable//SQLTaskData') AS Task(sqlTask)
+WHERE 
+    sqlTask.value('(SqlStatementSource)[1]', 'nvarchar(max)') LIKE '%' + x.objectname + '%'
