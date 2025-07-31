@@ -1,0 +1,20 @@
+SELECT 
+    f.folder_name,
+    p.project_name,
+    pkg.package_name,
+    pkg.package_format,
+    CAST(pkg.package_data AS XML) AS package_xml
+FROM 
+    SSISDB.catalog.folders f
+JOIN 
+    SSISDB.catalog.projects p ON f.folder_id = p.folder_id
+JOIN 
+    SSISDB.catalog.object_parameters op ON p.project_id = op.project_id
+JOIN 
+    SSISDB.catalog.packages pkg ON p.project_id = pkg.project_id
+WHERE 
+    pkg.package_format = 2 -- SSISDB package format
+    AND (
+        pkg.package_name LIKE '%BENEFITPLANMASTER%' 
+        OR CAST(pkg.package_data AS NVARCHAR(MAX)) LIKE '%BENEFITPLANMASTER%'
+    );
