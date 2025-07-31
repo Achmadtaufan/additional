@@ -1,0 +1,25 @@
+WITH PackageContent AS (
+    SELECT  
+        f.folder_name,
+        pr.project_name,
+        pk.name AS deployed_package_name,
+        CAST(pk.package_data AS XML) AS package_xml
+    FROM 
+        SSISDB.catalog.folders f
+    JOIN 
+        SSISDB.catalog.projects pr ON f.folder_id = pr.folder_id
+    JOIN 
+        SSISDB.catalog.object_parameters op ON pr.project_id = op.project_id
+    JOIN 
+        SSISDB.catalog.packages pk ON pr.project_id = pk.project_id
+    WHERE 
+        pk.package_data IS NOT NULL
+)
+SELECT 
+    folder_name,
+    project_name,
+    deployed_package_name
+FROM 
+    PackageContent
+WHERE 
+    package_xml.exist('//*[contains(text(), "BENEFITPLANMASTER")]') = 1;
