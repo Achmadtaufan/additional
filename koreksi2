@@ -1,0 +1,24 @@
+WITH PackageXML AS (
+    SELECT 
+        f.folder_name,
+        p.project_name,
+        o.object_name AS package_name,
+        TRY_CAST(o.object_data AS XML) AS package_xml
+    FROM 
+        SSISDB.catalog.folders f
+    JOIN 
+        SSISDB.catalog.projects p ON f.folder_id = p.folder_id
+    JOIN 
+        SSISDB.catalog.object_versions o ON p.project_id = o.project_id
+    WHERE 
+        o.object_type = 20 -- type 20 = package
+        AND o.object_data IS NOT NULL
+)
+SELECT 
+    folder_name,
+    project_name,
+    package_name
+FROM 
+    PackageXML
+WHERE 
+    package_xml.exist('//*[contains(translate(text(),"abcdefghijklmnopqrstuvwxyz","ABCDEFGHIJKLMNOPQRSTUVWXYZ"), "BENEFITPLANMASTER")]') = 1;
