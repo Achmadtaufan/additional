@@ -1,0 +1,23 @@
+USE msdb;
+GO
+
+WITH JobHistory AS (
+    SELECT 
+        j.name AS JobName,
+        -- Konversi run_duration (HHMMSS) ke detik
+        run_duration / 10000 * 3600 +
+        (run_duration % 10000) / 100 * 60 +
+        (run_duration % 100) AS RunSeconds
+    FROM dbo.sysjobhistory h
+    INNER JOIN dbo.sysjobs j ON h.job_id = j.job_id
+    WHERE j.name = 'ETL ALL'
+      AND h.step_id = 0 -- step_id=0 = keseluruhan job, bukan per step
+)
+SELECT 
+    JobName,
+    -- Rata-rata dalam detik → konversi ke format hh:mm:ss
+    RIGHT('0' + CAST(AVG(RunSeconds) / 3600 AS VARCHAR),2) + ':' +
+    RIGHT('0' + CAST((AVG(RunSeconds) % 3600) / 60 AS VARCHAR),2) + ':' +
+    RIGHT('0' + CAST(AVG(RunSeconds) % 60 AS VARCHAR),2) AS AvgRunTime
+FROM JobHistory
+GROUP BY JobName;
