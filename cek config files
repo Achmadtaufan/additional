@@ -1,0 +1,37 @@
+USE SSISDB;
+GO
+
+SELECT  
+    'Environment Variable' AS Source,
+    e.name AS ParentName,
+    ev.name AS ConfigName,
+    CAST(ev.value AS NVARCHAR(MAX)) AS ConfigValue
+FROM catalog.environment_variables ev
+JOIN catalog.environments e 
+    ON ev.environment_id = e.environment_id
+WHERE ev.value LIKE '%test%'
+
+UNION ALL
+
+SELECT  
+    'Object Parameter' AS Source,
+    p.name AS ParentName,
+    op.parameter_name AS ConfigName,
+    CAST(op.design_default_value AS NVARCHAR(MAX)) AS ConfigValue
+FROM catalog.object_parameters op
+JOIN catalog.projects p 
+    ON op.project_id = p.project_id
+WHERE op.design_default_value LIKE '%test%' 
+   OR op.referenced_variable_name LIKE '%test%'
+
+UNION ALL
+
+SELECT  
+    'Object Reference' AS Source,
+    p.name AS ParentName,
+    r.environment_name AS ConfigName,
+    r.environment_folder_name AS ConfigValue
+FROM catalog.object_references r
+JOIN catalog.projects p 
+    ON r.project_id = p.project_id
+WHERE r.environment_name LIKE '%test%';
