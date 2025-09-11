@@ -1,0 +1,27 @@
+CREATE FUNCTION dbo.fn_HitungUmur
+(
+    @TglLahir DATE,
+    @TglAcuan DATE
+)
+RETURNS INT
+AS
+BEGIN
+    DECLARE @Umur INT;
+
+    -- Hitung selisih tahun
+    SET @Umur = DATEDIFF(YEAR, @TglLahir, @TglAcuan);
+
+    -- Koreksi kalau di tahun acuan belum ulang tahun
+    IF (MONTH(@TglLahir) > MONTH(@TglAcuan))
+        OR (MONTH(@TglLahir) = MONTH(@TglAcuan) AND DAY(@TglLahir) > DAY(@TglAcuan))
+    BEGIN
+        SET @Umur = @Umur - 1;
+    END
+
+    -- Pastikan umur tidak negatif
+    IF @Umur < 0 
+        SET @Umur = 0;
+
+    RETURN @Umur;
+END;
+GO
