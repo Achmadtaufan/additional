@@ -1,0 +1,10 @@
+SELECT 
+    PrimaryKeyKolom, 
+    NamaKolom,
+    ASCII(SUBSTRING(NamaKolom, Number, 1)) AS ASCII_Code,
+    SUBSTRING(NamaKolom, Number, 1) AS BadChar
+FROM dbo.NamaTabel
+JOIN master.dbo.spt_values 
+    ON Type = 'P' AND Number BETWEEN 1 AND LEN(NamaKolom)
+WHERE ASCII(SUBSTRING(NamaKolom, Number, 1)) BETWEEN 0 AND 31
+  AND ASCII(SUBSTRING(NamaKolom, Number, 1)) NOT IN (9,10,13);
