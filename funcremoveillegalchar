@@ -1,0 +1,20 @@
+CREATE OR ALTER FUNCTION dbo.fn_RemoveIllegalXMLChars (@Input NVARCHAR(MAX))
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN
+    DECLARE @Output NVARCHAR(MAX);
+    SET @Output = @Input;
+
+    -- Hapus karakter kontrol ASCII 0–8, 11–12, 14–31
+    -- (TAB = 9, LF = 10, CR = 13 tetap dipertahankan)
+    DECLARE @i INT = 0;
+    WHILE @i <= 31
+    BEGIN
+        IF @i NOT IN (9, 10, 13)
+            SET @Output = REPLACE(@Output, NCHAR(@i), N'');
+        SET @i += 1;
+    END
+
+    RETURN @Output;
+END;
+GO
