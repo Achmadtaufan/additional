@@ -1,0 +1,12 @@
+$folderPath = "D:\tes"
+
+Get-ChildItem -Path $folderPath -Filter "*_backup_20251009*.sql" -Recurse -File | ForEach-Object {
+    # 1️⃣ Hapus teks dalam isi file
+    $content = Get-Content -Path $_.FullName -Raw
+    $newContent = $content -replace "_backup_20251009", ""
+    Set-Content -Path $_.FullName -Value $newContent -Encoding UTF8
+
+    # 2️⃣ Hapus teks dari nama file
+    $newName = $_.Name -replace "_backup_20251009", ""
+    Rename-Item -Path $_.FullName -NewName $newName
+}
