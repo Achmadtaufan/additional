@@ -1,17 +1,27 @@
 SELECT
     placeofbirth,
-    CASE 
+    CASE
         WHEN placeofbirth IS NULL THEN NULL
         ELSE NULLIF(
-            REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-                LTRIM(RTRIM(placeofbirth)),
-                CHAR(0), ''),
-                NCHAR(65279), ''),   -- BOM
-                CHAR(160), ' '),     -- Non-breaking space
-                CHAR(8206), ''),     -- LTR mark
-                CHAR(8207), ''),     -- RTL mark
-                NCHAR(8211), '-')    -- Long dash
-            , '')
-        , '')
-    END AS Cleaned_placeofbirth
+            -- mulai nested REPLACE satu per satu, dari inner -> outer
+            REPLACE(
+                REPLACE(
+                    REPLACE(
+                        REPLACE(
+                            REPLACE(
+                                REPLACE(
+                                    REPLACE(
+                                        REPLACE(
+                                            LTRIM(RTRIM(placeofbirth)),   -- trim dulu
+                                            CHAR(0), ''),                  -- hapus null char
+                                        NCHAR(65279), ''),                 -- hapus BOM
+                                    CHAR(160), ' '),                       -- NBSP -> spasi biasa
+                                NCHAR(8206), ''),                          -- LTR mark
+                            NCHAR(8207), ''),                              -- RTL mark
+                        NCHAR(8216), N''''),                              -- left single quote (‘) -> '
+                    NCHAR(8217), N''''),                                  -- right single quote (’) -> '
+                NCHAR(8211), N'-'),                                       -- en dash -> -
+            NCHAR(8212), N'-')                                           -- em dash -> -
+        , '') -- NULLIF: kalau hasil jadi empty string -> NULL
+    END AS placeofbirth_clean
 FROM YourTable;
