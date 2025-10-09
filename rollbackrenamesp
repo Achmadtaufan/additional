@@ -1,0 +1,54 @@
+-- 1️⃣ Buat tabel penampung SP yang mau di-rollback
+IF OBJECT_ID('tempdb..#RollbackList') IS NOT NULL DROP TABLE #RollbackList;
+CREATE TABLE #RollbackList (
+    OldSPName NVARCHAR(128),  -- nama SP yang akan diubah
+    NewSPName NVARCHAR(128)   -- nama SP sumber pengganti (backup)
+);
+
+-- 2️⃣ Masukkan daftar SP target dan sumbernya
+INSERT INTO #RollbackList (OldSPName, NewSPName)
+VALUES 
+('sp_test1', 'sp_test1a'),
+('sp_test2', 'sp_test2a'),
+('sp_test3', 'sp_test3a');
+
+-- 3️⃣ Loop tiap baris, ambil definisi SP backup, lalu alter SP target
+DECLARE 
+    @OldSP NVARCHAR(128),
+    @NewSP NVARCHAR(128),
+    @SP_Definition NVARCHAR(MAX);
+
+DECLARE cur CURSOR LOCAL FAST_FORWARD FOR 
+    SELECT OldSPName, NewSPName FROM #RollbackList;
+
+OPEN cur;
+FETCH NEXT FROM cur INTO @OldSP, @NewSP;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    PRINT 'Processing rollback: ' + @OldSP + ' ← ' + @NewSP;
+
+    -- Ambil definisi SP pengganti
+    SELECT @SP_Definition = OBJECT_DEFINITION(OBJECT_ID(@NewSP));
+
+    IF @SP_Definition IS NULL
+    BEGIN
+        PRINT '❌ Tidak ditemukan definisi untuk ' + @NewSP;
+    END
+    ELSE
+    BEGIN
+        -- Ubah CREATE → ALTER dan ganti nama SP jadi target
+        SET @SP_Definition = REPLACE(@SP_Definition, 'CREATE PROCEDURE', 'ALTER PROCEDURE');
+        SET @SP_Definition = REPLACE(@SP_Definition, 'CREATE PROC', 'ALTER PROC');
+        SET @SP_Definition = REPLACE(@SP_Definition, @NewSP, @OldSP);
+
+        EXEC sp_executesql @SP_Definition;
+
+        PRINT '✅ Rollback berhasil: ' + @OldSP + ' diganti dari ' + @NewSP;
+    END
+
+    FETCH NEXT FROM cur INTO @OldSP, @NewSP;
+END
+
+CLOSE cur;
+DEALLOCATE cur;
