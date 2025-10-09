@@ -1,26 +1,46 @@
+WITH CleanStep AS (
+    SELECT
+        placeofbirth,
+        LTRIM(RTRIM(placeofbirth)) AS step0
+    FROM YourTable
+),
+Step1 AS (
+    SELECT
+        step0,
+        REPLACE(step0, CHAR(0), '') AS step1  -- hapus null byte
+    FROM CleanStep
+),
+Step2 AS (
+    SELECT
+        step1,
+        REPLACE(step1, NCHAR(65279), '') AS step2  -- hapus BOM
+    FROM Step1
+),
+Step3 AS (
+    SELECT
+        step2,
+        REPLACE(step2, CHAR(160), ' ') AS step3  -- NBSP -> space
+    FROM Step2
+),
+Step4 AS (
+    SELECT
+        step3,
+        REPLACE(step3, NCHAR(8206), '') AS step4,  -- LTR mark
+        REPLACE(step3, NCHAR(8207), '') AS step4b  -- RTL mark
+    FROM Step3
+),
+Step5 AS (
+    SELECT
+        step4,
+        REPLACE(step4, NCHAR(8216), '''') AS step5a,  -- left single quote -> '
+        REPLACE(step4, NCHAR(8217), '''') AS step5b,  -- right single quote -> '
+        REPLACE(step4, NCHAR(8220), '"')  AS step5c,  -- left double quote -> "
+        REPLACE(step4, NCHAR(8221), '"')  AS step5d,  -- right double quote -> "
+        REPLACE(step4, NCHAR(8211), '-') AS step5e,   -- en dash -> -
+        REPLACE(step4, NCHAR(8212), '-') AS step5f    -- em dash -> -
+    FROM Step4
+)
 SELECT
     placeofbirth,
-    CASE
-        WHEN placeofbirth IS NULL THEN NULL
-        ELSE NULLIF(
-            REPLACE(
-                REPLACE(
-                    REPLACE(
-                        REPLACE(
-                            REPLACE(
-                                REPLACE(
-                                    REPLACE(
-                                        REPLACE(
-                                            LTRIM(RTRIM(placeofbirth)),   -- trim kiri & kanan
-                                            CHAR(0), ''),                  -- hapus null byte
-                                        NCHAR(65279), ''),                 -- hapus BOM
-                                    CHAR(160), ' '),                       -- NBSP -> space
-                                NCHAR(8206), ''),                          -- LTR mark
-                            NCHAR(8207), ''),                              -- RTL mark
-                        NCHAR(8216), ''''),                               -- left single quote (‘) -> '
-                    NCHAR(8217), ''''),                                   -- right single quote (’) -> '
-                NCHAR(8211), '-'),                                        -- en dash -> -
-            NCHAR(8212), '-')                                            -- em dash -> -
-        , '') -- NULLIF: empty string -> NULL
-    END AS placeofbirth_clean
-FROM YourTable;
+    NULLIF(step5a, '') AS placeofbirth_clean
+FROM Step5;
