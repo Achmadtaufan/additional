@@ -1,0 +1,36 @@
+CREATE OR ALTER FUNCTION dbo.fn_CleanForExcel (@Input NVARCHAR(MAX))
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN
+    -- Kalau input NULL, langsung NULL
+    IF @Input IS NULL RETURN NULL;
+
+    DECLARE @Output NVARCHAR(MAX) = @Input;
+
+    ------------------------------------------------------------------
+    -- 1️⃣ Hapus semua karakter ilegal XML (0–31, kecuali tab(9), LF(10), CR(13))
+    ------------------------------------------------------------------
+    WHILE PATINDEX('%[' + CHAR(0) + '-' + CHAR(8) +
+                         CHAR(11) + '-' + CHAR(12) +
+                         CHAR(14) + '-' + CHAR(31) + ']%', @Output) > 0
+        SET @Output = STUFF(@Output,
+                            PATINDEX('%[' + CHAR(0) + '-' + CHAR(8) +
+                                           CHAR(11) + '-' + CHAR(12) +
+                                           CHAR(14) + '-' + CHAR(31) + ']%', @Output),
+                            1, '');
+
+    ------------------------------------------------------------------
+    -- 2️⃣ Bersihkan karakter non-printable tambahan (kadang dari UTF-8 BOM)
+    ------------------------------------------------------------------
+    SET @Output = REPLACE(@Output, NCHAR(65279), N'');  -- Hapus BOM
+    SET @Output = REPLACE(@Output, NCHAR(160), N' ');   -- Non-breaking space → normal space
+
+    ------------------------------------------------------------------
+    -- 3️⃣ Lindungi dari formula injection Excel (=, +, -, @)
+    ------------------------------------------------------------------
+    IF LEFT(@Output, 1) IN ('=', '+', '-', '@')
+        SET @Output = N"'" + @Output;  -- tambahkan apostrof di depan biar Excel baca sebagai teks
+
+    RETURN @Output;
+END;
+GO
