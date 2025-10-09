@@ -1,0 +1,8 @@
+SELECT placeofbirth,
+       STRING_AGG(CONVERT(VARCHAR(10), UNICODE(SUBSTRING(placeofbirth, v.number, 1))), ',') AS UnicodeList
+FROM master..spt_values v
+JOIN YourTable t ON v.number BETWEEN 1 AND LEN(t.placeofbirth)
+WHERE v.type = 'P'
+GROUP BY placeofbirth
+HAVING MIN(UNICODE(SUBSTRING(placeofbirth, v.number, 1))) < 32
+   OR MAX(UNICODE(SUBSTRING(placeofbirth, v.number, 1))) > 126;
