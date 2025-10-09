@@ -1,0 +1,28 @@
+CREATE OR ALTER FUNCTION dbo.fn_HasIllegalXMLChars(@s NVARCHAR(MAX))
+RETURNS BIT
+AS
+BEGIN
+    IF @s IS NULL RETURN 0;
+    DECLARE @i INT = 1, @len INT = LEN(@s);
+    DECLARE @ch NCHAR(1), @u INT;
+    WHILE @i <= @len
+    BEGIN
+        SET @ch = SUBSTRING(@s, @i, 1);
+        SET @u = UNICODE(@ch);
+
+        -- allowed per XML 1.0: #x9 #xA #xD, #x20-#xD7FF, #xE000-#xFFFD, #x10000-#x10FFFF
+        -- in UTF-16 terms: we disallow surrogate halves (0xD800-0xDFFF) and control chars < 0x20 except 9,10,13
+        IF NOT (
+            @u IN (9,10,13)
+            OR (@u BETWEEN 32 AND 55295)
+            OR (@u BETWEEN 57344 AND 65533)
+        )
+        BEGIN
+            RETURN 1;
+        END
+
+        SET @i = @i + 1;
+    END
+    RETURN 0;
+END;
+GO
