@@ -1,0 +1,11 @@
+$folderPath = "C:\Users\225963\Downloads\OneDrive_2025-10-07\BackupOriginal\Daily Jumbo"
+
+# Cari semua file .sql yang ada kata _backup_20251009 di namanya
+Get-ChildItem -Path $folderPath -Recurse | Where-Object {
+    -not $_.PSIsContainer -and $_.Name -like "*_backup_20251009*.sql"
+} | ForEach-Object {
+    $oldName = $_.Name
+    $newName = $oldName -replace "_backup_20251009", ""
+    Rename-Item -Path $_.FullName -NewName $newName -Force
+    Write-Host "✅ Renamed:`n  $oldName → $newName"
+}
