@@ -1,0 +1,20 @@
+CREATE FUNCTION dbo.fn_HasIllegalXMLChars (@input NVARCHAR(MAX))
+RETURNS BIT
+AS
+BEGIN
+    DECLARE @i INT = 1, @len INT = LEN(@input), @ch NCHAR(1)
+    WHILE @i <= @len
+    BEGIN
+        SET @ch = SUBSTRING(@input, @i, 1)
+        IF UNICODE(@ch) NOT BETWEEN 9 AND 10
+           AND UNICODE(@ch) NOT BETWEEN 13 AND 13
+           AND UNICODE(@ch) NOT BETWEEN 32 AND 55295
+           AND UNICODE(@ch) NOT BETWEEN 57344 AND 65533
+           AND UNICODE(@ch) NOT BETWEEN 65536 AND 1114111
+        BEGIN
+            RETURN 1
+        END
+        SET @i += 1
+    END
+    RETURN 0
+END
