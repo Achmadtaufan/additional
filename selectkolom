@@ -3,7 +3,6 @@ SELECT
     CASE
         WHEN placeofbirth IS NULL THEN NULL
         ELSE NULLIF(
-            -- mulai nested REPLACE satu per satu, dari inner -> outer
             REPLACE(
                 REPLACE(
                     REPLACE(
@@ -12,16 +11,16 @@ SELECT
                                 REPLACE(
                                     REPLACE(
                                         REPLACE(
-                                            LTRIM(RTRIM(placeofbirth)),   -- trim dulu
-                                            CHAR(0), ''),                  -- hapus null char
+                                            LTRIM(RTRIM(placeofbirth)),   -- trim kiri & kanan
+                                            CHAR(0), ''),                  -- hapus null byte
                                         NCHAR(65279), ''),                 -- hapus BOM
-                                    CHAR(160), ' '),                       -- NBSP -> spasi biasa
+                                    CHAR(160), ' '),                       -- NBSP -> space
                                 NCHAR(8206), ''),                          -- LTR mark
                             NCHAR(8207), ''),                              -- RTL mark
-                        NCHAR(8216), N''''),                              -- left single quote (‘) -> '
-                    NCHAR(8217), N''''),                                  -- right single quote (’) -> '
-                NCHAR(8211), N'-'),                                       -- en dash -> -
-            NCHAR(8212), N'-')                                           -- em dash -> -
-        , '') -- NULLIF: kalau hasil jadi empty string -> NULL
+                        NCHAR(8216), ''''),                               -- left single quote (‘) -> '
+                    NCHAR(8217), ''''),                                   -- right single quote (’) -> '
+                NCHAR(8211), '-'),                                        -- en dash -> -
+            NCHAR(8212), '-')                                            -- em dash -> -
+        , '') -- NULLIF: empty string -> NULL
     END AS placeofbirth_clean
 FROM YourTable;
