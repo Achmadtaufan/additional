@@ -1,0 +1,25 @@
+CREATE OR ALTER FUNCTION dbo.fn_RemoveIllegalExcelChars (@Input NVARCHAR(MAX))
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN
+    IF @Input IS NULL RETURN NULL;
+
+    DECLARE @i INT = 1;
+    DECLARE @len INT = LEN(@Input);
+    DECLARE @result NVARCHAR(MAX) = N'';
+    DECLARE @c NCHAR(1);
+
+    WHILE @i <= @len
+    BEGIN
+        SET @c = SUBSTRING(@Input, @i, 1);
+
+        -- Hanya tambahkan karakter yang aman (>= 32 atau newline/tab/carriage return)
+        IF UNICODE(@c) >= 32 OR UNICODE(@c) IN (9,10,13)
+            SET @result += @c;
+
+        SET @i += 1;
+    END;
+
+    RETURN @result;
+END;
+GO
