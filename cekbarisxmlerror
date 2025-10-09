@@ -1,0 +1,40 @@
+SELECT placeofbirth
+FROM NamaTabel
+WHERE
+    -- Karakter kontrol ASCII 0–31 (kecuali tab(9), newline(10), CR(13))
+    placeofbirth LIKE '%' + CHAR(0) + '%'
+ OR placeofbirth LIKE '%' + CHAR(1) + '%'
+ OR placeofbirth LIKE '%' + CHAR(2) + '%'
+ OR placeofbirth LIKE '%' + CHAR(3) + '%'
+ OR placeofbirth LIKE '%' + CHAR(4) + '%'
+ OR placeofbirth LIKE '%' + CHAR(5) + '%'
+ OR placeofbirth LIKE '%' + CHAR(6) + '%'
+ OR placeofbirth LIKE '%' + CHAR(7) + '%'
+ OR placeofbirth LIKE '%' + CHAR(8) + '%'
+ OR placeofbirth LIKE '%' + CHAR(11) + '%'
+ OR placeofbirth LIKE '%' + CHAR(12) + '%'
+ OR placeofbirth LIKE '%' + CHAR(14) + '%'
+ OR placeofbirth LIKE '%' + CHAR(15) + '%'
+ OR placeofbirth LIKE '%' + CHAR(16) + '%'
+ OR placeofbirth LIKE '%' + CHAR(17) + '%'
+ OR placeofbirth LIKE '%' + CHAR(18) + '%'
+ OR placeofbirth LIKE '%' + CHAR(19) + '%'
+ OR placeofbirth LIKE '%' + CHAR(20) + '%'
+ OR placeofbirth LIKE '%' + CHAR(21) + '%'
+ OR placeofbirth LIKE '%' + CHAR(22) + '%'
+ OR placeofbirth LIKE '%' + CHAR(23) + '%'
+ OR placeofbirth LIKE '%' + CHAR(24) + '%'
+ OR placeofbirth LIKE '%' + CHAR(25) + '%'
+ OR placeofbirth LIKE '%' + CHAR(26) + '%'
+ OR placeofbirth LIKE '%' + CHAR(27) + '%'
+ OR placeofbirth LIKE '%' + CHAR(28) + '%'
+ OR placeofbirth LIKE '%' + CHAR(29) + '%'
+ OR placeofbirth LIKE '%' + CHAR(30) + '%'
+ OR placeofbirth LIKE '%' + CHAR(31) + '%'
+ OR placeofbirth LIKE N'%'+NCHAR(8216)+'%'  -- left single quote (‘)
+ OR placeofbirth LIKE N'%'+NCHAR(8217)+'%'  -- right single quote (’)
+ OR placeofbirth LIKE N'%'+NCHAR(8220)+'%'  -- left double quote (“)
+ OR placeofbirth LIKE N'%'+NCHAR(8221)+'%'  -- right double quote (”)
+ OR placeofbirth LIKE N'%'+NCHAR(8211)+'%'  -- en dash (–)
+ OR placeofbirth LIKE N'%'+NCHAR(8212)+'%'  -- em dash (—)
+ OR placeofbirth LIKE N'%'+NCHAR(160)+'%';  -- non-breaking space
