@@ -1,0 +1,5 @@
+SELECT *
+FROM ztemp_test
+WHERE placeofbirth LIKE '%[^ -~]%' -- mendeteksi karakter non-printable dasar
+   OR placeofbirth LIKE '%[' + CHAR(0) + '-' + CHAR(8) + CHAR(11) + CHAR(12) + CHAR(14) + '-' + CHAR(31) + ']%'
+   OR placeofbirth LIKE '%[' + NCHAR(0xFFFE) + NCHAR(0xFFFF) + ']%';
