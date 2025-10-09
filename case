@@ -1,17 +1,23 @@
 SELECT
     placeofbirth,
-    CASE 
+    CASE
         WHEN placeofbirth IS NULL THEN NULL
         ELSE NULLIF(
-            REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
-                LTRIM(RTRIM(placeofbirth)),
-                CHAR(0), ''),
-                NCHAR(65279), ''),   -- BOM
-                CHAR(160), ' '),     -- Non-breaking space
-                CHAR(8206), ''),     -- LTR mark
-                CHAR(8207), ''),     -- RTL mark
-                NCHAR(8211), '-')    -- Long dash
-            , '')
-        , '')
-    END AS Cleaned_placeofbirth
+            REPLACE(
+                REPLACE(
+                    REPLACE(
+                        REPLACE(
+                            REPLACE(
+                                REPLACE(
+                                    REPLACE(
+                                        LTRIM(RTRIM(placeofbirth)),   -- trim kiri & kanan
+                                        CHAR(0), ''),                  -- hapus null byte
+                                    NCHAR(65279), ''),                 -- hapus BOM
+                                CHAR(160), ' '),                       -- NBSP -> space
+                            NCHAR(8206), ''),                          -- LTR mark
+                        NCHAR(8207), ''),                              -- RTL mark
+                    NCHAR(8211), '-'),                                 -- en dash -> -
+                NCHAR(8212), '-')                                     -- em dash -> -
+            , '')  -- NULLIF: empty string -> NULL
+        END AS Cleaned_placeofbirth
 FROM YourTable;
