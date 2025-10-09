@@ -1,0 +1,18 @@
+$folderPath = "D:\tes"
+
+# Cari semua file yang mengandung _backup_20251009 dan berakhiran .sql
+Get-ChildItem -Path $folderPath -Recurse | Where-Object {
+    $_.PSIsContainer -eq $false -and $_.Name -like "*_backup_20251009*.sql"
+} | ForEach-Object {
+    $filePath = $_.FullName
+
+    # 1️⃣ Hapus teks di dalam isi file
+    $content = Get-Content $filePath | Out-String
+    $newContent = $content -replace "_backup_20251009", ""
+    Set-Content $filePath $newContent -Encoding UTF8
+
+    # 2️⃣ Hapus teks dari nama file
+    $newName = $_.Name -replace "_backup_20251009", ""
+    $newPath = Join-Path $_.DirectoryName $newName
+    Rename-Item $filePath $newPath
+}
