@@ -1,0 +1,25 @@
+$folderPath = "C:\Users\225963\Downloads\OneDrive_2025-10-07\BackupOriginal\Daily Jumbo"
+
+# Loop semua file .sql yang mengandung _backup_20251009
+Get-ChildItem -Path $folderPath -Recurse | Where-Object {
+    -not $_.PSIsContainer -and $_.Name -like "*_backup_20251009*.sql"
+} | ForEach-Object {
+    $filePath = $_.FullName
+    $dirPath = $_.DirectoryName
+    $oldName = $_.Name
+    $newName = $oldName -replace "_backup_20251009", ""
+    $newPath = Join-Path $dirPath $newName
+
+    # 1️⃣ Hapus teks di dalam isi file
+    $content = Get-Content -Path $filePath | Out-String
+    $newContent = $content -replace "_backup_20251009", ""
+    Set-Content -Path $filePath -Value $newContent -Encoding UTF8
+
+    # 2️⃣ Rename file berdasarkan path string (bukan $_)
+    if (Test-Path $filePath) {
+        Rename-Item -Path $filePath -NewName $newName -Force
+        Write-Host "✅ Renamed:`n  $oldName → $newName"
+    } else {
+        Write-Host "⚠️ Skip: File tidak ditemukan setelah update → $filePath"
+    }
+}
