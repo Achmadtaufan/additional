@@ -1,0 +1,7 @@
+SELECT
+    placeofbirth,
+    CASE
+        WHEN placeofbirth IS NULL OR LTRIM(RTRIM(placeofbirth)) = '' THEN NULL
+        ELSE '''' + LTRIM(RTRIM(placeofbirth))  -- tambah apostrophe di depan
+    END AS placeofbirth_excel
+FROM YourTable;
