@@ -1,0 +1,40 @@
+CREATE OR ALTER FUNCTION dbo.fn_CleanForExcel(@Input NVARCHAR(MAX))
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN
+    -- Kalau input NULL atau kosong, langsung return NULL
+    IF @Input IS NULL OR LTRIM(RTRIM(@Input)) = '' RETURN NULL;
+
+    DECLARE @Output NVARCHAR(MAX) = @Input;
+
+    ------------------------------------------------------------------
+    -- 1️⃣ Hapus karakter ilegal ASCII 0–31 kecuali tab(9), newline(10), CR(13)
+    ------------------------------------------------------------------
+    WHILE PATINDEX('%[' + CHAR(0) + '-' + CHAR(8) 
+                         + CHAR(11) + '-' + CHAR(12) 
+                         + CHAR(14) + '-' + CHAR(31) + ']%', @Output) > 0
+        SET @Output = STUFF(@Output,
+                            PATINDEX('%[' + CHAR(0) + '-' + CHAR(8) 
+                                           + CHAR(11) + '-' + CHAR(12) 
+                                           + CHAR(14) + '-' + CHAR(31) + ']%', @Output),
+                            1, '');
+
+    ------------------------------------------------------------------
+    -- 2️⃣ Cegah Excel formula injection
+    -- Jika teks diawali tanda berbahaya (=, +, -, @), ubah jadi fullwidth char
+    ------------------------------------------------------------------
+    IF LEFT(@Output, 1) IN ('=', '+', '-', '@')
+        SET @Output = REPLACE(LEFT(@Output, 1), '=', '＝');  -- fallback if needed
+
+    -- Ganti semua tanda berbahaya di mana pun muncul
+    SET @Output = REPLACE(@Output, '=', '＝');  -- Fullwidth equals
+    SET @Output = REPLACE(@Output, '+', '＋');  -- Fullwidth plus
+    SET @Output = REPLACE(@Output, '-', '－');  -- Fullwidth minus
+    SET @Output = REPLACE(@Output, '@', '＠');  -- Fullwidth at sign
+
+    ------------------------------------------------------------------
+    -- 3️⃣ Return hasil bersih
+    ------------------------------------------------------------------
+    RETURN @Output;
+END;
+GO
