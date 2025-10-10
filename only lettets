@@ -1,0 +1,20 @@
+CREATE OR ALTER FUNCTION dbo.fn_KeepOnlyLetters(@Input NVARCHAR(MAX))
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN
+    DECLARE @i INT = 1;
+    DECLARE @len INT = LEN(@Input);
+    DECLARE @c NCHAR(1);
+    DECLARE @Result NVARCHAR(MAX) = '';
+
+    WHILE @i <= @len
+    BEGIN
+        SET @c = SUBSTRING(@Input, @i, 1);
+        IF @c LIKE '[A-Za-z ]'
+            SET @Result += @c;
+        SET @i += 1;
+    END
+
+    RETURN @Result;
+END;
+GO
