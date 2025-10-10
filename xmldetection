@@ -1,20 +1,18 @@
 SELECT 
-    placeofbirth,
-    CAST(
-        '' AS XML
-    ).value('xs:hexBinary(sql:variable("@char"))', 'NVARCHAR(MAX)') AS IllegalCharHex,
-    UNICODE(SUBSTRING(placeofbirth, i.number, 1)) AS IllegalCharCode,
-    SUBSTRING(placeofbirth, i.number, 1) AS IllegalChar,
-    i.number AS Position
-FROM ztemp_test
+    t.*,
+    i.n AS Position,
+    SUBSTRING(t.placeofbirth, i.n, 1) AS IllegalChar,
+    UNICODE(SUBSTRING(t.placeofbirth, i.n, 1)) AS IllegalCharCode,
+    master..fn_varbintohexstr(CONVERT(varbinary(10), SUBSTRING(t.placeofbirth, i.n, 1))) AS IllegalCharHex
+FROM ztemp_test t
 CROSS APPLY (
-    SELECT TOP (LEN(placeofbirth))
-        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS number
-    FROM sys.all_objects
+    SELECT number AS n
+    FROM master..spt_values
+    WHERE type = 'P' AND number BETWEEN 1 AND LEN(t.placeofbirth)
 ) AS i
-WHERE UNICODE(SUBSTRING(placeofbirth, i.number, 1)) NOT IN (9, 10, 13)
+WHERE UNICODE(SUBSTRING(t.placeofbirth, i.n, 1)) NOT IN (9,10,13)
   AND (
-        UNICODE(SUBSTRING(placeofbirth, i.number, 1)) < 32 
-        OR (UNICODE(SUBSTRING(placeofbirth, i.number, 1)) BETWEEN 55296 AND 57343)
-        OR (UNICODE(SUBSTRING(placeofbirth, i.number, 1)) > 65533)
-      )
+        UNICODE(SUBSTRING(t.placeofbirth, i.n, 1)) < 32
+     OR (UNICODE(SUBSTRING(t.placeofbirth, i.n, 1)) BETWEEN 55296 AND 57343)
+     OR (UNICODE(SUBSTRING(t.placeofbirth, i.n, 1)) > 65533)
+  );
