@@ -1,0 +1,3 @@
+SELECT placeofbirth, sys.fn_varbintohexstr(CAST(placeofbirth AS VARBINARY(MAX)))
+FROM ztemp_test
+WHERE placeofbirth LIKE '%' + CHAR(13) + '%' OR placeofbirth LIKE '%' + CHAR(10) + '%';
