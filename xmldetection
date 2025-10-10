@@ -1,18 +1,19 @@
 SELECT 
-    t.*,
-    i.n AS Position,
-    SUBSTRING(t.placeofbirth, i.n, 1) AS IllegalChar,
-    UNICODE(SUBSTRING(t.placeofbirth, i.n, 1)) AS IllegalCharCode,
-    master..fn_varbintohexstr(CONVERT(varbinary(10), SUBSTRING(t.placeofbirth, i.n, 1))) AS IllegalCharHex
-FROM ztemp_test t
+    t.placeofbirth,
+    SUBSTRING(t.placeofbirth, v.number, 1) AS IllegalChar,
+    UNICODE(SUBSTRING(t.placeofbirth, v.number, 1)) AS IllegalCharCode,
+    master.dbo.fn_varbintohexstr(CONVERT(VARBINARY(2), SUBSTRING(t.placeofbirth, v.number, 1))) AS IllegalCharHex,
+    v.number AS Position
+FROM ztemp_test AS t
 CROSS APPLY (
-    SELECT number AS n
+    SELECT number
     FROM master..spt_values
-    WHERE type = 'P' AND number BETWEEN 1 AND LEN(t.placeofbirth)
-) AS i
-WHERE UNICODE(SUBSTRING(t.placeofbirth, i.n, 1)) NOT IN (9,10,13)
+    WHERE type = 'P' 
+      AND number BETWEEN 1 AND LEN(t.placeofbirth)
+) AS v
+WHERE UNICODE(SUBSTRING(t.placeofbirth, v.number, 1)) NOT IN (9,10,13)
   AND (
-        UNICODE(SUBSTRING(t.placeofbirth, i.n, 1)) < 32
-     OR (UNICODE(SUBSTRING(t.placeofbirth, i.n, 1)) BETWEEN 55296 AND 57343)
-     OR (UNICODE(SUBSTRING(t.placeofbirth, i.n, 1)) > 65533)
+        UNICODE(SUBSTRING(t.placeofbirth, v.number, 1)) < 32
+     OR (UNICODE(SUBSTRING(t.placeofbirth, v.number, 1)) BETWEEN 55296 AND 57343)
+     OR (UNICODE(SUBSTRING(t.placeofbirth, v.number, 1)) > 65533)
   );
