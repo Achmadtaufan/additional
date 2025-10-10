@@ -1,0 +1,28 @@
+CREATE OR ALTER FUNCTION dbo.fn_CleanLettersApostrophe(@Input NVARCHAR(MAX))
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN
+    DECLARE @i INT = 1;
+    DECLARE @len INT = LEN(@Input);
+    DECLARE @c NCHAR(1);
+    DECLARE @Result NVARCHAR(MAX) = '';
+
+    WHILE @i <= @len
+    BEGIN
+        SET @c = SUBSTRING(@Input, @i, 1);
+
+        -- Hanya huruf, spasi, dan apostrophe yang dipertahankan
+        IF @c LIKE '[A-Za-z'' ]'
+            SET @Result += @c;
+        ELSE
+            SET @Result += ' ';  -- non-huruf diganti spasi
+
+        SET @i += 1;
+    END
+
+    -- Hilangkan spasi berlebih di awal, akhir, dan ganda
+    SET @Result = LTRIM(RTRIM(REPLACE(REPLACE(@Result, '  ', ' '), '  ', ' ')));
+
+    RETURN @Result;
+END;
+GO
