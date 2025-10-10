@@ -1,0 +1,14 @@
+SELECT
+    PersonID,
+    (
+        SELECT STRING_AGG(
+                 CASE 
+                     WHEN SUBSTRING(ColumnName, v.number, 1) LIKE '[A-Za-z0-9 ]' 
+                     THEN SUBSTRING(ColumnName, v.number, 1) 
+                     ELSE ''  -- simbol dihapus
+                 END, ''
+               ) WITHIN GROUP (ORDER BY v.number)
+        FROM master..spt_values v
+        WHERE v.type = 'P' AND v.number BETWEEN 1 AND LEN(ColumnName)
+    ) AS CleanText
+FROM YourTable;
