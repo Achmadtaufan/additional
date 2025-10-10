@@ -1,12 +1,22 @@
 CASE 
-    WHEN placeofbirth IS NULL THEN NULL
+    WHEN placeofbirth IS NULL OR LTRIM(RTRIM(placeofbirth)) = '' THEN '-'
     ELSE
         CAST(
-            (
-                SELECT REPLACE(REPLACE(REPLACE(
-                    placeofbirth, CHAR(13), ''), CHAR(10), ''), CHAR(160), ''
-                ) AS [text()]
-                FOR XML PATH(''), TYPE
-            ).value('.', 'nvarchar(max)')
-        AS NVARCHAR(100))
+            REPLACE(
+                REPLACE(
+                    REPLACE(
+                        REPLACE(
+                            REPLACE(
+                                placeofbirth,
+                                CHAR(13), ''   -- hapus carriage return
+                            ),
+                            CHAR(10), ''   -- hapus line feed
+                        ),
+                        CHAR(9), ''      -- hapus tab
+                    ),
+                    NCHAR(160), ''      -- hapus non-breaking space
+                ),
+                NCHAR(8203), ''        -- hapus zero-width space
+            ) AS VARCHAR(255)
+        )
 END AS placeofbirth
