@@ -1,0 +1,27 @@
+CREATE OR ALTER FUNCTION dbo.fn_CleanXMLChars(@Input NVARCHAR(MAX))
+RETURNS NVARCHAR(MAX)
+AS
+BEGIN
+    DECLARE @Output NVARCHAR(MAX) = N'';
+    DECLARE @i INT = 1;
+
+    WHILE @i <= LEN(@Input)
+    BEGIN
+        DECLARE @c NCHAR(1) = SUBSTRING(@Input, @i, 1);
+        DECLARE @u INT = UNICODE(@c);
+
+        -- karakter valid XML
+        IF (@u = 9 OR @u = 10 OR @u = 13 OR
+            (@u >= 32 AND @u <= 55295) OR
+            (@u >= 57344 AND @u <= 65533) OR
+            (@u >= 65536 AND @u <= 1114111))
+        BEGIN
+            SET @Output += @c;
+        END
+        -- karakter ilegal dihapus (atau bisa diganti spasi kalau mau)
+        SET @i += 1;
+    END
+
+    RETURN @Output;
+END;
+GO
