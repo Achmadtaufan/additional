@@ -1,0 +1,8 @@
+SELECT placeofbirth,
+       sys.fn_varbintohexstr(CAST(placeofbirth AS VARBINARY(MAX))) AS hex_value
+FROM ztemp_test
+WHERE placeofbirth LIKE N'%[' 
+    + NCHAR(0xFEFF) + NCHAR(0x2028) + NCHAR(0x2029)
+    + NCHAR(0x2060) + NCHAR(0x000B) + NCHAR(0x000C)
+    + NCHAR(0x0085) + NCHAR(0x00AD)
++ N']%';
