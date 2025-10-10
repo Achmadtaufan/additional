@@ -1,0 +1,10 @@
+SELECT
+    CASE 
+        WHEN placeofbirth IS NOT NULL THEN
+            (
+                SELECT placeofbirth AS [text()]
+                FOR XML PATH(''), TYPE
+            ).value('.', 'nvarchar(max)')
+        ELSE NULL
+    END AS safe_placeofbirth
+FROM ztemp_test;
