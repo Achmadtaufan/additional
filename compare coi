@@ -1,0 +1,17 @@
+SELECT 
+    COALESCE(p.PolicyNum, pm.PolicyNum) AS PolicyNum,
+    p.Premi AS Premi_Policy,
+    pm.Premi AS Premi_PolicyMaster,
+    CASE 
+        WHEN p.PolicyNum IS NULL THEN '❌ Missing in Policy'
+        WHEN pm.PolicyNum IS NULL THEN '❌ Missing in PolicyMaster'
+        WHEN ISNULL(p.Premi, 0) <> ISNULL(pm.Premi, 0) THEN '⚠️ Premi differs'
+        ELSE '✅ Match'
+    END AS Status
+FROM Policy p
+FULL OUTER JOIN PolicyMaster pm 
+    ON p.PolicyNum = pm.PolicyNum
+WHERE 
+    p.PolicyNum IS NULL
+    OR pm.PolicyNum IS NULL
+    OR ISNULL(p.Premi, 0) <> ISNULL(pm.Premi, 0);
