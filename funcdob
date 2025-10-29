@@ -1,0 +1,13 @@
+DECLARE @birthdate INT = 20001030;
+
+SELECT 
+    @birthdate AS birthdate_int,
+    DATEDIFF(YEAR, 
+             CONVERT(date, CONVERT(varchar(8), @birthdate)), 
+             GETDATE()
+    )
+    - CASE 
+        WHEN (MONTH(GETDATE()) * 100 + DAY(GETDATE())) 
+             < (MONTH(CONVERT(date, CONVERT(varchar(8), @birthdate))) * 100 
+                + DAY(CONVERT(date, CONVERT(varchar(8), @birthdate))))
+        THEN 1 ELSE 0 END AS AgeInYears;
