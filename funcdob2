@@ -1,0 +1,15 @@
+DECLARE @t TABLE(birthdate INT);
+INSERT INTO @t VALUES (20001030),(19991231),(0), (20251301), (NULL);
+
+SELECT 
+    birthdate, 
+    TRY_CONVERT(date, CONVERT(varchar(8), birthdate), 112) AS birth_dt,
+    CASE 
+      WHEN TRY_CONVERT(date, CONVERT(varchar(8), birthdate), 112) IS NULL THEN NULL
+      ELSE
+        DATEDIFF(YEAR, TRY_CONVERT(date, CONVERT(varchar(8), birthdate), 112), CAST(GETDATE() AS date))
+        - CASE WHEN (MONTH(GETDATE())*100 + DAY(GETDATE()))
+                 < (MONTH(TRY_CONVERT(date, CONVERT(varchar(8), birthdate), 112))*100 + DAY(TRY_CONVERT(date, CONVERT(varchar(8), birthdate), 112)))
+               THEN 1 ELSE 0 END
+    END AS AgeInYears
+FROM @t;
