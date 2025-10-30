@@ -1,0 +1,44 @@
+DECLARE @sql NVARCHAR(MAX);
+
+-- Bangun query dinamis berdasarkan jumlah maksimum fund
+WITH cte_base AS (
+    SELECT 
+        polis,
+        fundcd,
+        fundalloc,
+        ROW_NUMBER() OVER (PARTITION BY polis ORDER BY fundcd) AS rn
+    FROM unitlink
+),
+cte_rn AS (
+    SELECT DISTINCT rn
+    FROM cte_base
+)
+SELECT 
+    @sql = STRING_AGG(
+        CONCAT(
+            ', ISNULL(MAX(CASE WHEN rn = ', rn, ' THEN fundcd END), '''') AS fundcd', rn,
+            ', ISNULL(MAX(CASE WHEN rn = ', rn, ' THEN CAST(fundalloc AS VARCHAR(10)) END), '''') AS fundalloc', rn
+        ), CHAR(10)
+    )
+FROM cte_rn;
+
+-- Gabungkan query akhir
+SET @sql = '
+;WITH cte AS (
+    SELECT 
+        polis,
+        fundcd,
+        fundalloc,
+        ROW_NUMBER() OVER (PARTITION BY polis ORDER BY fundcd) AS rn
+    FROM unitlink
+)
+SELECT 
+    polis
+' + @sql + '
+FROM cte
+GROUP BY polis
+ORDER BY polis;
+';
+
+-- Jalankan hasilnya
+EXEC sp_executesql @sql;
