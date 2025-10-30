@@ -1,0 +1,15 @@
+CREATE TABLE unitlink (
+    polis INT,
+    fundcd VARCHAR(10),
+    fundalloc INT
+);
+
+INSERT INTO unitlink VALUES
+(123, 'isea', 20),
+(123, 'isba', 80),
+(124, 'ieea', 10),
+(124, 'ieca', 10),
+(124, 'ibca', 10),
+(124, 'iimm', 10),
+(124, 'intm', 60),
+(125, 'iabb', 100);
