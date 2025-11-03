@@ -1,0 +1,32 @@
+WITH clean_client AS (
+    SELECT
+        clientid,
+        LTRIM(RTRIM(
+            REPLACE(
+                REPLACE(
+                    CONCAT(
+                        COALESCE(firstname, ''), ' ',
+                        COALESCE(midname, ''), ' ',
+                        COALESCE(surname, '')
+                    ),
+                '  ', ' '),
+            '  ', ' ')
+        )) AS fullname_clean
+    FROM client
+),
+clean_temp AS (
+    SELECT
+        LTRIM(RTRIM(
+            REPLACE(
+                REPLACE(nama, '  ', ' '),
+            '  ', ' ')
+        )) AS nama_clean
+    FROM tempclient
+)
+SELECT 
+    t.nama_clean, 
+    c.clientid,
+    c.fullname_clean
+FROM clean_temp t
+LEFT JOIN clean_client c 
+    ON LOWER(t.nama_clean) = LOWER(c.fullname_clean);
