@@ -1,0 +1,14 @@
+SELECT 
+    filename,
+    CAST(filename AS VARBINARY(MAX)) AS binary_value
+FROM excelupload
+WHERE EXISTS (
+    SELECT 1
+    FROM (
+        SELECT TOP (LEN(filename))
+            UNICODE(SUBSTRING(filename, number, 1)) AS code
+        FROM master..spt_values
+        WHERE type = 'P' AND number BETWEEN 1 AND LEN(filename)
+    ) AS chars
+    WHERE code > 127
+);
