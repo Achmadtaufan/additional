@@ -1,0 +1,23 @@
+SELECT 
+    filename,
+    (
+        SELECT STRING_AGG(CONCAT('[', number, ']=', UNICODE(SUBSTRING(filename, number, 1))), ', ')
+        FROM master..spt_values
+        WHERE type = 'P'
+          AND number BETWEEN 1 AND LEN(filename)
+          AND (
+              UNICODE(SUBSTRING(filename, number, 1)) < 32 
+              OR UNICODE(SUBSTRING(filename, number, 1)) > 126
+          )
+    ) AS illegal_positions
+FROM excelupload
+WHERE EXISTS (
+    SELECT 1
+    FROM master..spt_values
+    WHERE type = 'P'
+      AND number BETWEEN 1 AND LEN(filename)
+      AND (
+          UNICODE(SUBSTRING(filename, number, 1)) < 32 
+          OR UNICODE(SUBSTRING(filename, number, 1)) > 126
+      )
+);
