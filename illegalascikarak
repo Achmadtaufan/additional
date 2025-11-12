@@ -1,26 +1,9 @@
-;WITH CharCheck AS (
-    SELECT
-        e.filename,
-        v.number AS pos,
-        SUBSTRING(e.filename, v.number, 1) AS ch,
-        UNICODE(SUBSTRING(e.filename, v.number, 1)) AS code
-    FROM excelupload e
-    JOIN master..spt_values v 
-        ON v.type = 'P' 
-       AND v.number BETWEEN 1 AND LEN(e.filename)
-)
-SELECT 
-    filename,
-    STUFF((
-        SELECT 
-            ', [pos=' + CAST(pos AS VARCHAR(10)) + 
-            ' char=' + ch + 
-            ' code=' + CAST(code AS VARCHAR(10)) + ']'
-        FROM CharCheck c2
-        WHERE c2.filename = c1.filename
-          AND (code < 32 OR code > 126)
-        FOR XML PATH(''), TYPE
-    ).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS illegal_positions
-FROM CharCheck c1
-GROUP BY filename
-HAVING COUNT(CASE WHEN code < 32 OR code > 126 THEN 1 END) > 0;
+SELECT filename
+FROM excelupload
+WHERE EXISTS (
+    SELECT 1
+    FROM master..spt_values v
+    WHERE v.type = 'P'
+      AND v.number BETWEEN 1 AND LEN(filename)
+      AND UNICODE(SUBSTRING(filename, v.number, 1)) > 127
+);
