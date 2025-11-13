@@ -1,7 +1,12 @@
 DECLARE @cmd VARCHAR(MAX) = '/FILE"\"D:Upload_File\ETL\DATAMART\TEST.DTSX\""/CONFIGFILE"\"....';
 
 SELECT 
-    RIGHT(
-        LEFT(@cmd, CHARINDEX('\""/CONFIGFILE', @cmd) - 1),
-        CHARINDEX('\', REVERSE(LEFT(@cmd, CHARINDEX('\""/CONFIGFILE', @cmd) - 1))) - 1
-    ) AS FileName;
+    CASE 
+        WHEN CHARINDEX('.DTSX', UPPER(@cmd)) > 0 
+        THEN 
+            RIGHT(
+                LEFT(@cmd, CHARINDEX('.DTSX', UPPER(@cmd)) + 4),  -- ambil sampai ".DTSX"
+                CHARINDEX('\', REVERSE(LEFT(@cmd, CHARINDEX('.DTSX', UPPER(@cmd)) + 4))) - 1
+            )
+        ELSE NULL
+    END AS FileName;
