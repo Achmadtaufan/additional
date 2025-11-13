@@ -1,0 +1,7 @@
+DECLARE @cmd VARCHAR(MAX) = '/FILE"\"D:Upload_File\ETL\DATAMART\TEST.DTSX\""/CONFIGFILE"\"....';
+
+SELECT 
+    RIGHT(
+        LEFT(@cmd, CHARINDEX('\""/CONFIGFILE', @cmd) - 1),
+        CHARINDEX('\', REVERSE(LEFT(@cmd, CHARINDEX('\""/CONFIGFILE', @cmd) - 1))) - 1
+    ) AS FileName;
