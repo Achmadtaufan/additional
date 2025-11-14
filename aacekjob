@@ -1,0 +1,14 @@
+SELECT  
+    j.name AS JobName,
+    h.run_date,
+    STUFF(
+        STUFF(RIGHT('000000' + CAST(h.run_time AS VARCHAR(6)), 6), 3, 0, ':'), 
+        6, 0, ':'
+    ) AS RunTime,
+    msdb.dbo.agent_datetime(h.run_date, h.run_time) AS RunDateTime,
+    h.run_status
+FROM msdb.dbo.sysjobhistory h
+INNER JOIN msdb.dbo.sysjobs j ON h.job_id = j.job_id
+WHERE h.step_id = 0  -- Step summary (hasil akhir job)
+  AND msdb.dbo.agent_datetime(h.run_date, h.run_time) >= CAST(CONVERT(date, GETDATE()) AS DATETIME) + '07:00'
+ORDER BY RunDateTime DESC;
