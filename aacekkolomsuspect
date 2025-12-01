@@ -1,0 +1,17 @@
+DECLARE @table SYSNAME = 'ztemptes';
+DECLARE @sql NVARCHAR(MAX) = N'';
+
+SELECT @sql = @sql +
+'SELECT ''' + name + ''' AS ColumnName, COUNT(*) AS JumlahError
+FROM ' + @table + '
+WHERE TRY_CONVERT(VARCHAR(4000), [' + name + ']) IS NULL 
+  AND [' + name + '] IS NOT NULL
+UNION ALL
+'
+FROM sys.columns 
+WHERE object_id = OBJECT_ID(@table);
+
+-- buang UNION ALL terakhir
+SET @sql = LEFT(@sql, LEN(@sql) - 10);
+
+EXEC (@sql);
