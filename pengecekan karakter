@@ -12,10 +12,9 @@ FETCH NEXT FROM cur INTO @col;
 
 WHILE @@FETCH_STATUS = 0
 BEGIN
-    PRINT 'Cek kolom: ' + @col;
-
     SET @sql = '
-        SELECT COUNT(*) AS BadCharCount
+        SELECT ''' + @col + ''' AS ColumnName,
+               COUNT(*) AS BadCharCount
         FROM ' + QUOTENAME(@table) + '
         WHERE [' + @col + '] LIKE ''%'' + CHAR(10) + ''%''
            OR [' + @col + '] LIKE ''%'' + CHAR(13) + ''%''
