@@ -1,0 +1,17 @@
+DECLARE @table SYSNAME = 'ztemptest';
+DECLARE @sql NVARCHAR(MAX) = N'';
+
+SELECT @sql = @sql + '
+IF EXISTS (
+    SELECT 1 
+    FROM ' + @table + '
+    WHERE LEN(' + QUOTENAME(c.name) + ') <> DATALENGTH(' + QUOTENAME(c.name) + ')
+)
+SELECT ''' + c.name + ''' AS ColumnName;
+'
+FROM sys.columns c
+JOIN sys.types t ON c.user_type_id = t.user_type_id
+WHERE c.object_id = OBJECT_ID(@table)
+  AND t.name IN ('char','varchar','nchar','nvarchar');
+
+EXEC(@sql);
