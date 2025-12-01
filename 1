@@ -1,0 +1,36 @@
+DECLARE @table SYSNAME = 'ztemptes';
+DECLARE @sql NVARCHAR(MAX) = N'';
+
+;WITH cols AS (
+    SELECT name
+    FROM sys.columns
+    WHERE object_id = OBJECT_ID(@table)
+      AND system_type_id IN (167,175,231,239)  -- varchar, nvarchar, char, nchar
+)
+SELECT @sql = @sql +
+'SELECT ''' + name + ''' AS ColumnName,
+        COUNT(*) AS BadCharCount
+ FROM ' + QUOTENAME(@table) + '
+ WHERE ' +
+ '(' +
+     STUFF((
+         SELECT ' OR CHARINDEX(CHAR(' + CAST(v.number AS VARCHAR(3)) + '), [' + name + ']) > 0'
+         FROM master..spt_values v
+         WHERE v.number BETWEEN 0 AND 31
+           AND v.type = ''P''
+         FOR XML PATH(''), TYPE
+     ).value('.', 'nvarchar(max)'),1,4,'') +
+ ')
+'
+ + 'UNION ALL
+'
+FROM cols;
+
+
+-- Hapus UNION ALL terakhir
+IF RIGHT(@sql, 10) = 'UNION ALL
+'
+    SET @sql = LEFT(@sql, LEN(@sql) - 10);
+
+PRINT @sql;
+EXEC(@sql);
