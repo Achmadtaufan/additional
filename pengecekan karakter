@@ -1,23 +1,33 @@
 DECLARE @table SYSNAME = 'ztemptes';
-DECLARE @sql NVARCHAR(MAX) = N'';
+DECLARE @col SYSNAME;
+DECLARE @sql NVARCHAR(MAX);
 
-SELECT @sql = @sql +
-'
-SELECT ''' + name + ''' AS ColumnName, COUNT(*) AS BadCharCount
-FROM ' + @table + '
-WHERE [' + name + '] LIKE ''%'' + CHAR(10) + ''%''
-   OR [' + name + '] LIKE ''%'' + CHAR(13) + ''%''
-   OR [' + name + '] LIKE ''%'' + CHAR(9)  + ''%''
-   OR [' + name + '] LIKE ''%'' + CHAR(160) + ''%''
-   OR [' + name + '] LIKE ''%'' + CHAR(0) + ''%''
-HAVING COUNT(*) > 0
-UNION ALL
-'
-FROM sys.columns 
-WHERE object_id = OBJECT_ID(@table)
-  AND system_type_id IN (35,99,167,175,231,239); -- only text/varchar/nchar/nvarchar
+DECLARE cur CURSOR FAST_FORWARD FOR
+SELECT name 
+FROM sys.columns
+WHERE object_id = OBJECT_ID(@table);
 
--- buang UNION ALL terakhir
-SET @sql = LEFT(@sql, LEN(@sql) - 10);
+OPEN cur;
+FETCH NEXT FROM cur INTO @col;
 
-EXEC (@sql);
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    PRINT 'Cek kolom: ' + @col;
+
+    SET @sql = '
+        SELECT COUNT(*) AS BadCharCount
+        FROM ' + QUOTENAME(@table) + '
+        WHERE [' + @col + '] LIKE ''%'' + CHAR(10) + ''%''
+           OR [' + @col + '] LIKE ''%'' + CHAR(13) + ''%''
+           OR [' + @col + '] LIKE ''%'' + CHAR(9)  + ''%''
+           OR [' + @col + '] LIKE ''%'' + CHAR(160) + ''%''
+           OR [' + @col + '] LIKE ''%'' + CHAR(0) + ''%''
+    ';
+
+    EXEC (@sql);
+
+    FETCH NEXT FROM cur INTO @col;
+END
+
+CLOSE cur;
+DEALLOCATE cur;
