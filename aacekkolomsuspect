@@ -1,23 +1,33 @@
-DECLARE @schema SYSNAME = 'dbo';
 DECLARE @table SYSNAME = 'ztemptes';
-DECLARE @full NVARCHAR(517) = QUOTENAME(@schema) + '.' + QUOTENAME(@table);
-DECLARE @sql NVARCHAR(MAX);
+DECLARE @full NVARCHAR(255) = QUOTENAME('dbo') + '.' + QUOTENAME(@table);
 
-SELECT @sql = STRING_AGG(
-    'SELECT ' + QUOTENAME(name,'''') + ' AS ColumnName, COUNT(*) AS JumlahError' +
-    ' FROM ' + @full +
-    ' WHERE TRY_CONVERT(VARCHAR(4000), ' + QUOTENAME(name) + ') IS NULL AND ' + QUOTENAME(name) + ' IS NOT NULL'
-, ' UNION ALL ')
+IF OBJECT_ID('tempdb..#cek') IS NOT NULL DROP TABLE #cek;
+CREATE TABLE #cek (ColumnName SYSNAME, SqlText NVARCHAR(MAX));
+
+INSERT INTO #cek
+SELECT 
+    name AS ColumnName,
+    'SELECT ''' + name + ''' AS ColumnName, COUNT(*) AS JumlahError
+     FROM ' + @full + '
+     WHERE TRY_CONVERT(VARCHAR(4000), ' + QUOTENAME(name) + ') IS NULL
+       AND ' + QUOTENAME(name) + ' IS NOT NULL'
 FROM sys.columns
 WHERE object_id = OBJECT_ID(@full);
 
-IF @sql IS NULL OR LEN(@sql) = 0
+DECLARE @col SYSNAME, @sql NVARCHAR(MAX);
+
+DECLARE cur CURSOR FOR 
+    SELECT ColumnName, SqlText FROM #cek;
+
+OPEN cur;
+FETCH NEXT FROM cur INTO @col, @sql;
+
+WHILE @@FETCH_STATUS = 0
 BEGIN
-    PRINT 'Tabel tidak ditemukan atau tidak ada kolom.';
+    PRINT 'Mengecek kolom: ' + @col;
+    EXEC (@sql);
+    FETCH NEXT FROM cur INTO @col, @sql;
 END
-ELSE
-BEGIN
-    PRINT 'Menjalankan query:';
-    PRINT @sql; -- opsional
-    EXEC sp_executesql @sql;
-END
+
+CLOSE cur;
+DEALLOCATE cur;
