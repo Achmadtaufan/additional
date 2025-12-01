@@ -1,17 +1,23 @@
+DECLARE @schema SYSNAME = 'dbo';
 DECLARE @table SYSNAME = 'ztemptes';
-DECLARE @sql NVARCHAR(MAX) = N'';
+DECLARE @full NVARCHAR(517) = QUOTENAME(@schema) + '.' + QUOTENAME(@table);
+DECLARE @sql NVARCHAR(MAX);
 
-SELECT @sql = @sql +
-'SELECT ''' + name + ''' AS ColumnName, COUNT(*) AS JumlahError
-FROM ' + @table + '
-WHERE TRY_CONVERT(VARCHAR(4000), [' + name + ']) IS NULL 
-  AND [' + name + '] IS NOT NULL
-UNION ALL
-'
-FROM sys.columns 
-WHERE object_id = OBJECT_ID(@table);
+SELECT @sql = STRING_AGG(
+    'SELECT ' + QUOTENAME(name,'''') + ' AS ColumnName, COUNT(*) AS JumlahError' +
+    ' FROM ' + @full +
+    ' WHERE TRY_CONVERT(VARCHAR(4000), ' + QUOTENAME(name) + ') IS NULL AND ' + QUOTENAME(name) + ' IS NOT NULL'
+, ' UNION ALL ')
+FROM sys.columns
+WHERE object_id = OBJECT_ID(@full);
 
--- buang UNION ALL terakhir
-SET @sql = LEFT(@sql, LEN(@sql) - 10);
-
-EXEC (@sql);
+IF @sql IS NULL OR LEN(@sql) = 0
+BEGIN
+    PRINT 'Tabel tidak ditemukan atau tidak ada kolom.';
+END
+ELSE
+BEGIN
+    PRINT 'Menjalankan query:';
+    PRINT @sql; -- opsional
+    EXEC sp_executesql @sql;
+END
