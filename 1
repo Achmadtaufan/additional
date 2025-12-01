@@ -1,36 +1,58 @@
+-- FINAL: cek control chars 0..31 di semua kolom teks, tampil hanya kolom bermasalah
 DECLARE @table SYSNAME = 'ztemptes';
-DECLARE @sql NVARCHAR(MAX) = N'';
+DECLARE @col SYSNAME;
+DECLARE @sql NVARCHAR(MAX);
+DECLARE @n INT;
 
-;WITH cols AS (
-    SELECT name
-    FROM sys.columns
-    WHERE object_id = OBJECT_ID(@table)
-      AND system_type_id IN (167,175,231,239)  -- varchar, nvarchar, char, nchar
-)
-SELECT @sql = @sql +
-'SELECT ''' + name + ''' AS ColumnName,
-        COUNT(*) AS BadCharCount
- FROM ' + QUOTENAME(@table) + '
- WHERE ' +
- '(' +
-     STUFF((
-         SELECT ' OR CHARINDEX(CHAR(' + CAST(v.number AS VARCHAR(3)) + '), [' + name + ']) > 0'
-         FROM master..spt_values v
-         WHERE v.number BETWEEN 0 AND 31
-           AND v.type = ''P''
-         FOR XML PATH(''), TYPE
-     ).value('.', 'nvarchar(max)'),1,4,'') +
- ')
-'
- + 'UNION ALL
-'
-FROM cols;
+IF OBJECT_ID('tempdb..#badChars') IS NOT NULL DROP TABLE #badChars;
+CREATE TABLE #badChars (
+    ColumnName SYSNAME,
+    BadCharCount BIGINT
+);
 
+DECLARE cur CURSOR FAST_FORWARD FOR
+SELECT name
+FROM sys.columns
+WHERE object_id = OBJECT_ID(@table)
+  AND system_type_id IN (167,175,231,239)  -- varchar, char, nvarchar, nchar
+ORDER BY column_id;
 
--- Hapus UNION ALL terakhir
-IF RIGHT(@sql, 10) = 'UNION ALL
-'
-    SET @sql = LEFT(@sql, LEN(@sql) - 10);
+OPEN cur;
+FETCH NEXT FROM cur INTO @col;
 
-PRINT @sql;
-EXEC(@sql);
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    -- build condition: CHARINDEX(NCHAR(0), [col])>0 OR CHARINDEX(NCHAR(1), [col])>0 ...
+    SET @sql = N'';
+    SET @n = 0;
+    WHILE @n <= 31
+    BEGIN
+        IF LEN(@sql) = 0
+            SET @sql = N'CHARINDEX(NCHAR(' + CAST(@n AS NVARCHAR(3)) + N'), ' + QUOTENAME(@col) + N') > 0';
+        ELSE
+            SET @sql = @sql + N' OR CHARINDEX(NCHAR(' + CAST(@n AS NVARCHAR(3)) + N'), ' + QUOTENAME(@col) + N') > 0';
+        SET @n = @n + 1;
+    END
+
+    -- insert count into temp table
+    SET @sql = N'INSERT INTO #badChars (ColumnName, BadCharCount)
+                 SELECT ' + QUOTENAME(@col,'''') + N' AS ColumnName, COUNT(*) AS BadCharCount
+                 FROM ' + QUOTENAME(@table) + N'
+                 WHERE ' + @sql + N';';
+
+    EXEC sp_executesql @sql;
+
+    FETCH NEXT FROM cur INTO @col;
+END
+
+CLOSE cur;
+DEALLOCATE cur;
+
+-- tampilkan hanya kolom yang bermasalah
+SELECT ColumnName, BadCharCount
+FROM #badChars
+WHERE BadCharCount > 0
+ORDER BY BadCharCount DESC;
+
+-- bersihin
+DROP TABLE #badChars;
