@@ -1,0 +1,50 @@
+SELECT x.*, ft.id
+INTO #temp_acmv_coicoa
+FROM accountmovement ft
+CROSS APPLY (
+    ---------------------------------------------------
+    -- Ambil 1 baris hasil grouping (policy/subacc/rldg/product)
+    ---------------------------------------------------
+    SELECT 
+        a.policy_number,
+        a.sub_acc_type,
+        a.sub_acc_code,
+        a.rldgacct,
+        RIGHT(CAST(RTRIM(a.gl_account_code) AS VARCHAR(20)), 4) AS product_code,
+        a.effective_date AS effectivedate
+    FROM (
+        SELECT 
+            policy_number,
+            sub_acc_type,
+            sub_acc_code,
+            rldgacct,
+            RIGHT(CAST(RTRIM(gl_account_code) AS VARCHAR(20)), 4) AS product_code,
+            effective_date,
+            ROW_NUMBER() OVER (
+                PARTITION BY policy_number, sub_acc_type, sub_acc_code,
+                             rldgacct, RIGHT(CAST(RTRIM(gl_account_code) AS VARCHAR(20)),4)
+                ORDER BY effective_date DESC
+            ) AS rn
+        FROM accountmovement
+        WHERE batchcd = 'b674'
+          AND sub_acc_code + sub_acc_type IN ('LEMC', 'LEFE')
+    ) a
+    WHERE a.rn = 1
+) x
+WHERE 
+    ft.policy_number = x.policy_number
+    AND ft.sub_acc_type = x.sub_acc_type
+    AND ft.sub_acc_code = x.sub_acc_code
+    AND ft.effective_date = x.effectivedate
+    AND RIGHT(CAST(RTRIM(ft.gl_account_code) AS VARCHAR(20)),4) = x.product_code
+    AND ft.rldgacct = x.rldgacct
+    AND ft.id = (
+        SELECT MAX(id)
+        FROM accountmovement c
+        WHERE c.policy_number = x.policy_number
+          AND c.sub_acc_type = x.sub_acc_type
+          AND c.sub_acc_code = x.sub_acc_code
+          AND c.effective_date = x.effectivedate
+          AND RIGHT(CAST(RTRIM(c.gl_account_code) AS VARCHAR(20)),4) = x.product_code
+          AND c.rldgacct = x.rldgacct
+    );
