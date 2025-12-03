@@ -1,0 +1,42 @@
+;WITH base AS (
+    SELECT
+        polnum,
+        sactp,
+        sacd,
+        rldgatt,
+        RIGHT(LTRIM(RTRIM(acccd)), 4) AS product_code,
+        MAX(effdt) AS effectivedate
+    FROM accountmovent
+    WHERE batchcd = 'b674'
+      AND sacd + sactp IN ('lemc','lefe')
+    GROUP BY
+        polnum, sactp, sacd, rldgatt,
+        RIGHT(LTRIM(RTRIM(acccd)), 4)
+),
+acct AS (
+    SELECT 
+        ft.*,
+        RIGHT(LTRIM(RTRIM(ft.acccd)), 4) AS product_code
+    FROM accountmovement ft
+)
+SELECT b.*, x.id
+INTO #temp_acmv_coicoa
+FROM base b
+JOIN acct x
+    ON  x.polnum       = b.polnum
+    AND x.sactp        = b.sactp
+    AND x.sacd         = b.sacd
+    AND x.effdt        = b.effectivedate
+    AND x.product_code = b.product_code
+    AND x.rldgatt      = b.rldgatt
+CROSS APPLY (
+    SELECT TOP(1) id
+    FROM accountmovent c
+    WHERE  c.polnum       = b.polnum
+       AND c.sactp        = b.sactp
+       AND c.sacd         = b.sacd
+       AND c.effdt        = b.effectivedate
+       AND RIGHT(LTRIM(RTRIM(c.acccd)),4) = b.product_code
+       AND c.rldgatt      = b.rldgatt
+    ORDER BY c.id DESC     -- lebih cepat dari MAX(id)
+) AS lastid;
