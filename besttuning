@@ -1,0 +1,79 @@
+---------------------------------------------------------
+-- 1. Filter data awal + hitung RTRIM sekali saja
+---------------------------------------------------------
+SELECT 
+    policy_number,
+    sub_acc_type,
+    sub_acc_code,
+    rldgacct,
+    effective_date,
+    id,
+    RIGHT(RTRIM(gl_account_code), 4) AS product_code
+INTO #acmv_filtered
+FROM accountmovement
+WHERE batchcd = 'b674'
+  AND sub_acc_code + sub_acc_type IN ('LEMC', 'LEFE');
+
+-- Index agar join/grouping cepat
+CREATE INDEX ix_acmv_filtered
+ON #acmv_filtered (policy_number, sub_acc_type, sub_acc_code, rldgacct, product_code, effective_date);
+
+
+---------------------------------------------------------
+-- 2. Ambil effective_date terbaru per group
+---------------------------------------------------------
+SELECT 
+    policy_number,
+    sub_acc_type,
+    sub_acc_code,
+    rldgacct,
+    product_code,
+    MAX(effective_date) AS effective_date
+INTO #latest_effdt
+FROM #acmv_filtered
+GROUP BY
+    policy_number,
+    sub_acc_type,
+    sub_acc_code,
+    rldgacct,
+    product_code;
+
+CREATE INDEX ix_latest_effdt
+ON #latest_effdt (policy_number, sub_acc_type, sub_acc_code, rldgacct, product_code, effective_date);
+
+
+---------------------------------------------------------
+-- 3. Join ke filtered data, lalu ambil ID terbesar
+---------------------------------------------------------
+SELECT 
+    f.*,
+    ROW_NUMBER() OVER(
+        PARTITION BY 
+            f.policy_number,
+            f.sub_acc_type,
+            f.sub_acc_code,
+            f.rldgacct,
+            f.product_code,
+            f.effective_date
+        ORDER BY f.id DESC
+    ) AS rn
+INTO #joined
+FROM #acmv_filtered f
+JOIN #latest_effdt l
+  ON f.policy_number   = l.policy_number
+ AND f.sub_acc_type    = l.sub_acc_type
+ And f.sub_acc_code    = l.sub_acc_code
+ And f.rldgacct        = l.rldgacct
+ And f.product_code    = l.product_code
+ And f.effective_date  = l.effective_date;
+
+CREATE INDEX ix_joined ON #joined (rn);
+
+
+---------------------------------------------------------
+-- 4. Pilih hanya record dengan ID terbesar
+---------------------------------------------------------
+SELECT *
+INTO #temp_acmv_coicoa
+FROM #joined
+WHERE rn = 1;
