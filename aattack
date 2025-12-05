@@ -1,10 +1,10 @@
+WITH enrol AS (
+    SELECT product
+    FROM product
+    WHERE tabledesc = 'enroltpa'
+)
 SELECT cp.clientnum
 FROM clientproduct cp
+LEFT JOIN enrol e ON cp.product = e.product
 GROUP BY cp.clientnum
-HAVING SUM(
-    CASE WHEN cp.product IN (
-        SELECT product 
-        FROM product 
-        WHERE tabledesc = 'enroltpa'
-    ) THEN 1 ELSE 0 END
-) = 0;
+HAVING SUM(CASE WHEN e.product IS NOT NULL THEN 1 ELSE 0 END) = 0;
