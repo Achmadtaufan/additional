@@ -1,0 +1,11 @@
+SELECT  
+    DB_NAME(st.dbid) AS database_name,
+    OBJECT_NAME(st.objectid, st.dbid) AS procedure_name,
+    qs.execution_count,
+    qs.last_execution_time,
+    qs.total_elapsed_time / 1000 AS total_elapsed_ms,
+    qs.max_elapsed_time / 1000 AS max_elapsed_ms
+FROM sys.dm_exec_query_stats qs
+CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
+WHERE st.text LIKE '%sp_getdata%'
+ORDER BY qs.last_execution_time DESC;
