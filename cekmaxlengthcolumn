@@ -1,27 +1,17 @@
-DECLARE @SchemaName SYSNAME = 'dbo';
-DECLARE @TableName  SYSNAME = 'Customer';
+DECLARE @TableName SYSNAME = 'NamaTable'
+DECLARE @SchemaName SYSNAME = 'dbo'
 
-DECLARE @SQL NVARCHAR(MAX);
+DECLARE @SQL NVARCHAR(MAX) = ''
 
-SELECT @SQL =
-STRING_AGG(
-'
-SELECT
+SELECT @SQL = @SQL + '
+SELECT 
     ''' + c.name + ''' AS ColumnName,
-    MAX(LEN(CAST(' + QUOTENAME(c.name) + ' AS NVARCHAR(MAX)))) AS MaxDataLength,
-    ' + CAST(
-        CASE 
-            WHEN t.name IN (''nvarchar'',''nchar'') THEN c.max_length / 2
-            ELSE c.max_length
-        END
-      AS VARCHAR(10)) + ' AS ColumnMaxLength
-FROM ' + QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName)
-, '
-UNION ALL
-')
+    MAX(LEN(CAST(' + QUOTENAME(c.name) + ' AS NVARCHAR(MAX)))) AS MaxLength
+FROM ' + QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName) + '
+UNION ALL'
 FROM sys.columns c
-JOIN sys.types t ON c.user_type_id = t.user_type_id
-WHERE c.object_id = OBJECT_ID(QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName))
-  AND t.name IN ('varchar','nvarchar','char','nchar');
+WHERE c.object_id = OBJECT_ID(@SchemaName + '.' + @TableName)
 
-EXEC sys.sp_executesql @SQL;
+SET @SQL = LEFT(@SQL, LEN(@SQL) - 10)
+
+EXEC sp_executesql @SQL
