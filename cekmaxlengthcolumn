@@ -3,17 +3,34 @@ DECLARE @TableName  SYSNAME = 'Customer'
 
 DECLARE @SQL NVARCHAR(MAX) = ''
 
-SELECT @SQL = @SQL + '
+-- simpan metadata kolom dulu
+DECLARE @Cols TABLE
+(
+    ColumnName SYSNAME,
+    MaxLen INT
+)
+
+INSERT INTO @Cols (ColumnName, MaxLen)
 SELECT 
-    ''' + c.name + ''' AS ColumnName,
-    MAX(LEN(CAST(' + QUOTENAME(c.name) + ' AS NVARCHAR(MAX)))) AS MaxDataLength,
-    ' + CAST(c.max_length AS VARCHAR(10)) + ' AS ColumnMaxLength
-FROM ' + QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName) + '
-UNION ALL'
+    c.name,
+    CASE 
+        WHEN t.name IN ('nvarchar','nchar') THEN c.max_length / 2
+        ELSE c.max_length
+    END
 FROM sys.columns c
 JOIN sys.types t ON c.user_type_id = t.user_type_id
 WHERE c.object_id = OBJECT_ID(@SchemaName + '.' + @TableName)
   AND t.name IN ('varchar','nvarchar','char','nchar')
+
+-- bangun dynamic SQL
+SELECT @SQL = @SQL + '
+SELECT
+    ''' + ColumnName + ''' AS ColumnName,
+    MAX(LEN(CAST(' + QUOTENAME(ColumnName) + ' AS NVARCHAR(MAX)))) AS MaxDataLength,
+    ' + CAST(MaxLen AS VARCHAR(10)) + ' AS ColumnMaxLength
+FROM ' + QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName) + '
+UNION ALL'
+FROM @Cols
 
 -- hapus UNION ALL terakhir
 SET @SQL = LEFT(@SQL, LEN(@SQL) - 10)
