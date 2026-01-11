@@ -1,38 +1,27 @@
-DECLARE @SchemaName SYSNAME = 'dbo'
-DECLARE @TableName  SYSNAME = 'Customer'
+DECLARE @SchemaName SYSNAME = 'dbo';
+DECLARE @TableName  SYSNAME = 'Customer';
 
-DECLARE @SQL NVARCHAR(MAX) = ''
+DECLARE @SQL NVARCHAR(MAX);
 
--- simpan metadata kolom dulu
-DECLARE @Cols TABLE
-(
-    ColumnName SYSNAME,
-    MaxLen INT
-)
-
-INSERT INTO @Cols (ColumnName, MaxLen)
-SELECT 
-    c.name,
-    CASE 
-        WHEN t.name IN ('nvarchar','nchar') THEN c.max_length / 2
-        ELSE c.max_length
-    END
+SELECT @SQL =
+STRING_AGG(
+'
+SELECT
+    ''' + c.name + ''' AS ColumnName,
+    MAX(LEN(CAST(' + QUOTENAME(c.name) + ' AS NVARCHAR(MAX)))) AS MaxDataLength,
+    ' + CAST(
+        CASE 
+            WHEN t.name IN (''nvarchar'',''nchar'') THEN c.max_length / 2
+            ELSE c.max_length
+        END
+      AS VARCHAR(10)) + ' AS ColumnMaxLength
+FROM ' + QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName)
+, '
+UNION ALL
+')
 FROM sys.columns c
 JOIN sys.types t ON c.user_type_id = t.user_type_id
-WHERE c.object_id = OBJECT_ID(@SchemaName + '.' + @TableName)
-  AND t.name IN ('varchar','nvarchar','char','nchar')
+WHERE c.object_id = OBJECT_ID(QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName))
+  AND t.name IN ('varchar','nvarchar','char','nchar');
 
--- bangun dynamic SQL
-SELECT @SQL = @SQL + '
-SELECT
-    ''' + ColumnName + ''' AS ColumnName,
-    MAX(LEN(CAST(' + QUOTENAME(ColumnName) + ' AS NVARCHAR(MAX)))) AS MaxDataLength,
-    ' + CAST(MaxLen AS VARCHAR(10)) + ' AS ColumnMaxLength
-FROM ' + QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName) + '
-UNION ALL'
-FROM @Cols
-
--- hapus UNION ALL terakhir
-SET @SQL = LEFT(@SQL, LEN(@SQL) - 10)
-
-EXEC sp_executesql @SQL
+EXEC sys.sp_executesql @SQL;
