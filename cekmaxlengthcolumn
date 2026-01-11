@@ -1,5 +1,5 @@
-DECLARE @TableName SYSNAME = 'NamaTable'
 DECLARE @SchemaName SYSNAME = 'dbo'
+DECLARE @TableName  SYSNAME = 'Customer'
 
 DECLARE @SQL NVARCHAR(MAX) = ''
 
@@ -7,15 +7,15 @@ SELECT @SQL = @SQL + '
 SELECT 
     ''' + c.name + ''' AS ColumnName,
     MAX(LEN(CAST(' + QUOTENAME(c.name) + ' AS NVARCHAR(MAX)))) AS MaxDataLength,
-    c.max_length AS ColumnMaxLength
+    ' + CAST(c.max_length AS VARCHAR(10)) + ' AS ColumnMaxLength
 FROM ' + QUOTENAME(@SchemaName) + '.' + QUOTENAME(@TableName) + '
-GROUP BY c.max_length
 UNION ALL'
 FROM sys.columns c
 JOIN sys.types t ON c.user_type_id = t.user_type_id
 WHERE c.object_id = OBJECT_ID(@SchemaName + '.' + @TableName)
   AND t.name IN ('varchar','nvarchar','char','nchar')
 
+-- hapus UNION ALL terakhir
 SET @SQL = LEFT(@SQL, LEN(@SQL) - 10)
 
 EXEC sp_executesql @SQL
