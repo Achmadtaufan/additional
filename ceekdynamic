@@ -1,0 +1,35 @@
+CREATE TABLE #TempResults (
+    job_name        SYSNAME,
+    step_id         INT,
+    step_name       SYSNAME,
+    command         NVARCHAR(MAX),
+    keyword_dicek   VARCHAR(200)
+);
+
+DECLARE @search VARCHAR(200);
+
+WHILE EXISTS (SELECT 1 FROM #TempTable)
+BEGIN
+    SELECT TOP 1 @search = command_search FROM #TempTable;
+
+    INSERT INTO #TempResults (
+        job_name,
+        step_id,
+        step_name,
+        command,
+        keyword_dicek
+    )
+    SELECT
+        b.name,
+        a.step_id,
+        a.step_name,
+        a.command,
+        @search
+    FROM msdb.dbo.sysjobsteps a
+    JOIN msdb.dbo.sysjobs b 
+        ON a.job_id = b.job_id
+    WHERE a.command LIKE '%' + @search + '%';
+
+    DELETE FROM #TempTable
+    WHERE command_search = @search;
+END
