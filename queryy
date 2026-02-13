@@ -1,14 +1,14 @@
-SELECT p.policy_no,
-       p.oriissueddt,
-       s.statusdt,
-       s.polstatus
+SELECT  p.policy_no,
+        p.oriissueddt,
+        s.statusdt,
+        s.polstatus
 FROM policy p
 JOIN policy_status s
-     ON p.policy_no = s.policy_no
+    ON p.policy_no = s.policy_no
 WHERE p.oriissueddt IS NOT NULL
   AND s.polstatus = 'LAPSE'
-  AND CONVERT(date, CONVERT(varchar(8), s.statusdt))
-      BETWEEN CONVERT(date, CONVERT(varchar(8), p.oriissueddt))
-          AND DATEADD(YEAR, 2,
-              CONVERT(date, CONVERT(varchar(8), p.oriissueddt))
-          )
+  AND TRY_CONVERT(date, CONVERT(varchar(8), s.statusdt))
+        >= TRY_CONVERT(date, CONVERT(varchar(8), p.oriissueddt))
+  AND TRY_CONVERT(date, CONVERT(varchar(8), s.statusdt))
+        < DATEADD(YEAR, 2,
+        TRY_CONVERT(date, CONVERT(varchar(8), p.oriissueddt)))
