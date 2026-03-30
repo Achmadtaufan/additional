@@ -1,0 +1,44 @@
+DECLARE @periode VARCHAR(20)
+DECLARE @html NVARCHAR(MAX)
+
+SET @periode = FORMAT(GETDATE(),'MMM yyyy')
+
+SET @html =
+'<html>
+<body>
+<h3>Estimation AP Periode ' + @periode + '</h3>
+
+<table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse;">
+<tr style="background-color:#f2f2f2;font-weight:bold;text-align:center;">
+    <td>CHANNEL</td>
+    <td>APE (ISSUED)</td>
+    <td>STU</td>
+    <td>TOTAL APE</td>
+</tr>' +
+
+(
+SELECT 
+    '<tr>
+        <td>' + channel_code + '</td>
+        <td align="right">' + 
+            FORMAT(ape_issued_la + diff_owb_ape, 'N2') + 
+        '</td>
+        <td align="right">' + 
+            FORMAT(stu_la, 'N2') + 
+        '</td>
+        <td align="right">' + 
+            FORMAT(
+                (ape_issued_la + diff_owb_ape) + stu_la
+            , 'N2') + 
+        '</td>
+    </tr>'
+FROM ztemp_ape_owb_la_issued
+WHERE periode = FORMAT(GETDATE(),'yyyyMM')
+FOR XML PATH(''), TYPE
+).value('.', 'NVARCHAR(MAX)')
+
++ '</table>
+</body>
+</html>'
+
+SELECT @html AS bodymail
