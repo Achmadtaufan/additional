@@ -1,0 +1,38 @@
+DECLARE @cols NVARCHAR(MAX),
+        @sql  NVARCHAR(MAX);
+
+-- ambil list kolom periode jadi Jan-26, Feb-26, dst
+SELECT @cols = STRING_AGG(QUOTENAME(FORMAT(DATEFROMPARTS(LEFT(periode,4), RIGHT(periode,2), 1), 'MMM-yy')), ',')
+FROM (SELECT DISTINCT periode FROM temp_polsyh) x;
+
+-- dynamic query
+SET @sql = '
+WITH periode AS (
+    SELECT DISTINCT periode FROM temp_polsyh
+),
+produk AS (
+    SELECT DISTINCT productcode, productname FROM temp_polsyh
+),
+base AS (
+    SELECT 
+        p.periode,
+        pr.productcode,
+        pr.productname,
+        ISNULL(t.totalpolicy, 0) AS totalpolicy,
+        FORMAT(DATEFROMPARTS(LEFT(p.periode,4), RIGHT(p.periode,2), 1), ''MMM-yy'') AS periodename
+    FROM periode p
+    CROSS JOIN produk pr
+    LEFT JOIN temp_polsyh t
+        ON t.periode = p.periode
+        AND t.productcode = pr.productcode
+)
+SELECT *
+FROM base
+PIVOT (
+    SUM(totalpolicy)
+    FOR periodename IN (' + @cols + ')
+) p
+ORDER BY productcode;
+';
+
+EXEC sp_executesql @sql;
