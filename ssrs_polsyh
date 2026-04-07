@@ -1,0 +1,53 @@
+CREATE PROCEDURE sp_report_polsyh_flat
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- TEMP TABLE (AMAN)
+    CREATE TABLE #temp_polsyh (
+        periode VARCHAR(6),
+        productcode VARCHAR(10),
+        productname VARCHAR(100),
+        totalpolicy INT
+    );
+
+    INSERT INTO #temp_polsyh
+    EXEC sp_sumber_data_polsyh;
+
+    DECLARE @tahun INT = YEAR(GETDATE()),
+            @bulan INT = MONTH(GETDATE());
+
+    CREATE TABLE #periode (periode VARCHAR(6));
+
+    IF @bulan = 1
+    BEGIN
+        INSERT INTO #periode
+        SELECT CONVERT(VARCHAR(6), DATEFROMPARTS(@tahun-1, v.number, 1), 112)
+        FROM master..spt_values v
+        WHERE v.type = 'P' AND v.number BETWEEN 1 AND 12;
+    END
+    ELSE
+    BEGIN
+        INSERT INTO #periode
+        SELECT CONVERT(VARCHAR(6), DATEFROMPARTS(@tahun, v.number, 1), 112)
+        FROM master..spt_values v
+        WHERE v.type = 'P' AND v.number BETWEEN 1 AND @bulan-1;
+    END
+
+    SELECT 
+        pr.productcode,
+        pr.productname,
+        p.periode,
+        LEFT(DATENAME(MONTH, DATEFROMPARTS(LEFT(p.periode,4), RIGHT(p.periode,2), 1)),3)
+        + '-' + RIGHT(p.periode,2) AS periodename,
+        ISNULL(t.totalpolicy, 0) AS totalpolicy
+    FROM #periode p
+    CROSS JOIN (
+        SELECT DISTINCT productcode, productname FROM #temp_polsyh
+    ) pr
+    LEFT JOIN #temp_polsyh t
+        ON t.periode = p.periode
+        AND t.productcode = pr.productcode
+    ORDER BY pr.productcode, p.periode;
+
+END
