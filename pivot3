@@ -1,0 +1,67 @@
+DECLARE @cols NVARCHAR(MAX),
+        @cols_alias NVARCHAR(MAX),
+        @sql  NVARCHAR(MAX),
+        @tahun INT = YEAR(GETDATE()),
+        @bulan INT = MONTH(GETDATE());
+
+DECLARE @periode TABLE (periode VARCHAR(6));
+
+-- LOGIC PERIODE
+IF @bulan = 1
+BEGIN
+    -- Januari → ambil full tahun sebelumnya
+    INSERT INTO @periode
+    SELECT FORMAT(DATEFROMPARTS(@tahun-1, v.number, 1), 'yyyyMM')
+    FROM master..spt_values v
+    WHERE v.type = 'P' AND v.number BETWEEN 1 AND 12;
+END
+ELSE
+BEGIN
+    -- Selain Januari → ambil dari Jan sampai bulan sebelumnya (tahun berjalan)
+    INSERT INTO @periode
+    SELECT FORMAT(DATEFROMPARTS(@tahun, v.number, 1), 'yyyyMM')
+    FROM master..spt_values v
+    WHERE v.type = 'P' AND v.number BETWEEN 1 AND @bulan-1;
+END
+
+-- kolom pivot
+SELECT @cols = STRING_AGG(QUOTENAME(periode), ',') FROM @periode;
+
+-- alias Jan-26 dst
+SELECT @cols_alias = STRING_AGG(
+    QUOTENAME(periode) + ' AS ' + QUOTENAME(FORMAT(DATEFROMPARTS(LEFT(periode,4), RIGHT(periode,2), 1), 'MMM-yy'))
+, ',')
+FROM @periode;
+
+SET @sql = '
+WITH produk AS (
+    SELECT DISTINCT productcode, productname FROM temp_polsyh
+),
+base AS (
+    SELECT 
+        pr.productcode,
+        pr.productname,
+        p.periode,
+        ISNULL(t.totalpolicy, 0) AS totalpolicy
+    FROM @periode p
+    CROSS JOIN produk pr
+    LEFT JOIN temp_polsyh t
+        ON t.periode = p.periode
+        AND t.productcode = pr.productcode
+)
+SELECT 
+    productcode,
+    productname,
+    ' + @cols_alias + '
+FROM base
+PIVOT (
+    SUM(totalpolicy)
+    FOR periode IN (' + @cols + ')
+) p
+ORDER BY productcode;
+';
+
+EXEC sp_executesql 
+    @sql,
+    N'@periode TABLE (periode VARCHAR(6)) READONLY',
+    @periode=@periode;
