@@ -1,0 +1,46 @@
+DECLARE @cols NVARCHAR(MAX),
+        @cols_alias NVARCHAR(MAX),
+        @sql  NVARCHAR(MAX);
+
+-- kolom pivot asli (YYYYMM)
+SELECT @cols = STRING_AGG(QUOTENAME(periode), ',')
+FROM (SELECT DISTINCT periode FROM temp_polsyh) x;
+
+-- kolom select dengan alias Jan-26 dst
+SELECT @cols_alias = STRING_AGG(
+    QUOTENAME(periode) + ' AS ' + QUOTENAME(FORMAT(DATEFROMPARTS(LEFT(periode,4), RIGHT(periode,2), 1), 'MMM-yy'))
+, ',')
+FROM (SELECT DISTINCT periode FROM temp_polsyh) x;
+
+SET @sql = '
+WITH periode AS (
+    SELECT DISTINCT periode FROM temp_polsyh
+),
+produk AS (
+    SELECT DISTINCT productcode, productname FROM temp_polsyh
+),
+base AS (
+    SELECT 
+        pr.productcode,
+        pr.productname,
+        p.periode,
+        ISNULL(t.totalpolicy, 0) AS totalpolicy
+    FROM periode p
+    CROSS JOIN produk pr
+    LEFT JOIN temp_polsyh t
+        ON t.periode = p.periode
+        AND t.productcode = pr.productcode
+)
+SELECT 
+    productcode,
+    productname,
+    ' + @cols_alias + '
+FROM base
+PIVOT (
+    SUM(totalpolicy)
+    FOR periode IN (' + @cols + ')
+) p
+ORDER BY productcode;
+';
+
+EXEC sp_executesql @sql;
