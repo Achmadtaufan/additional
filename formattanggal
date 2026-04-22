@@ -1,8 +1,10 @@
 SELECT 
     kolom_tanggal,
     CASE 
-        WHEN kolom_tanggal LIKE '00/00/%' 
-            THEN RIGHT(kolom_tanggal, 4) + '0000'
-        ELSE CONVERT(VARCHAR(8), TRY_CONVERT(DATE, kolom_tanggal, 103), 112)
+        WHEN TRY_CONVERT(DATE, kolom_tanggal, 103) IS NOT NULL
+            THEN CONVERT(VARCHAR(8), TRY_CONVERT(DATE, kolom_tanggal, 103), 112)
+        WHEN kolom_tanggal LIKE '%/%/%'
+            THEN RIGHT(LTRIM(RTRIM(kolom_tanggal)), 4) + '0000'
+        ELSE '00000000'
     END AS tgl_format
 FROM nama_tabel;
