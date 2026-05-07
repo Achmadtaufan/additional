@@ -1,36 +1,24 @@
+WITH cte AS (
+    SELECT
+        issdt,
+        TRY_CONVERT(date, CAST(issdt AS varchar(8)), 112) AS dt
+    FROM tr_dt
+)
+
 SELECT
-    t.issdt,
+    issdt,
 
     CASE
-        WHEN DATEADD(YEAR,
-                     YEAR(GETDATE()) - YEAR(x.dt),
-                     x.dt) <= CAST(GETDATE() AS DATE)
-        THEN DATEADD(YEAR,
-                     YEAR(GETDATE()) - YEAR(x.dt),
-                     x.dt)
-
-        ELSE DATEADD(YEAR,
-                     YEAR(GETDATE()) - YEAR(x.dt) - 1,
-                     x.dt)
+        WHEN DATEADD(YEAR, DATEDIFF(YEAR, dt, GETDATE()), dt) > GETDATE()
+        THEN DATEADD(YEAR, DATEDIFF(YEAR, dt, GETDATE()) - 1, dt)
+        ELSE DATEADD(YEAR, DATEDIFF(YEAR, dt, GETDATE()), dt)
     END AS last_anniv,
 
     CASE
-        WHEN DATEADD(YEAR,
-                     YEAR(GETDATE()) - YEAR(x.dt),
-                     x.dt) > CAST(GETDATE() AS DATE)
-        THEN DATEADD(YEAR,
-                     YEAR(GETDATE()) - YEAR(x.dt),
-                     x.dt)
-
-        ELSE DATEADD(YEAR,
-                     YEAR(GETDATE()) - YEAR(x.dt) + 1,
-                     x.dt)
+        WHEN DATEADD(YEAR, DATEDIFF(YEAR, dt, GETDATE()), dt) <= GETDATE()
+        THEN DATEADD(YEAR, DATEDIFF(YEAR, dt, GETDATE()) + 1, dt)
+        ELSE DATEADD(YEAR, DATEDIFF(YEAR, dt, GETDATE()), dt)
     END AS next_anniv
 
-FROM tr_dt t
-
-CROSS APPLY (
-    SELECT TRY_CONVERT(date, CAST(t.issdt AS char(8))) AS dt
-) x
-
-WHERE x.dt IS NOT NULL;
+FROM cte
+WHERE dt IS NOT NULL;
