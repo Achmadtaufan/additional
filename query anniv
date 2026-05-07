@@ -2,39 +2,29 @@ SELECT
     t.issdt,
 
     CASE
-        WHEN DATEFROMPARTS(
-                YEAR(GETDATE()),
-                MONTH(x.dt),
-                DAY(x.dt)
-             ) <= CAST(GETDATE() AS DATE)
-        THEN DATEFROMPARTS(
-                YEAR(GETDATE()),
-                MONTH(x.dt),
-                DAY(x.dt)
-             )
-        ELSE DATEFROMPARTS(
-                YEAR(GETDATE()) - 1,
-                MONTH(x.dt),
-                DAY(x.dt)
-             )
+        WHEN DATEADD(YEAR,
+                     YEAR(GETDATE()) - YEAR(x.dt),
+                     x.dt) <= CAST(GETDATE() AS DATE)
+        THEN DATEADD(YEAR,
+                     YEAR(GETDATE()) - YEAR(x.dt),
+                     x.dt)
+
+        ELSE DATEADD(YEAR,
+                     YEAR(GETDATE()) - YEAR(x.dt) - 1,
+                     x.dt)
     END AS last_anniv,
 
     CASE
-        WHEN DATEFROMPARTS(
-                YEAR(GETDATE()),
-                MONTH(x.dt),
-                DAY(x.dt)
-             ) > CAST(GETDATE() AS DATE)
-        THEN DATEFROMPARTS(
-                YEAR(GETDATE()),
-                MONTH(x.dt),
-                DAY(x.dt)
-             )
-        ELSE DATEFROMPARTS(
-                YEAR(GETDATE()) + 1,
-                MONTH(x.dt),
-                DAY(x.dt)
-             )
+        WHEN DATEADD(YEAR,
+                     YEAR(GETDATE()) - YEAR(x.dt),
+                     x.dt) > CAST(GETDATE() AS DATE)
+        THEN DATEADD(YEAR,
+                     YEAR(GETDATE()) - YEAR(x.dt),
+                     x.dt)
+
+        ELSE DATEADD(YEAR,
+                     YEAR(GETDATE()) - YEAR(x.dt) + 1,
+                     x.dt)
     END AS next_anniv
 
 FROM tr_dt t
