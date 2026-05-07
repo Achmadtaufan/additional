@@ -1,16 +1,46 @@
-DECLARE @birth_date DATE = '1992-03-11';
-
 SELECT
-    @birth_date AS birth_date,
+    t.issdt,
 
     CASE
-        WHEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(@birth_date), DAY(@birth_date)) <= CAST(GETDATE() AS DATE)
-            THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(@birth_date), DAY(@birth_date))
-        ELSE DATEFROMPARTS(YEAR(GETDATE()) - 1, MONTH(@birth_date), DAY(@birth_date))
+        WHEN DATEFROMPARTS(
+                YEAR(GETDATE()),
+                MONTH(x.dt),
+                DAY(x.dt)
+             ) <= CAST(GETDATE() AS DATE)
+        THEN DATEFROMPARTS(
+                YEAR(GETDATE()),
+                MONTH(x.dt),
+                DAY(x.dt)
+             )
+        ELSE DATEFROMPARTS(
+                YEAR(GETDATE()) - 1,
+                MONTH(x.dt),
+                DAY(x.dt)
+             )
     END AS last_anniv,
 
     CASE
-        WHEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(@birth_date), DAY(@birth_date)) > CAST(GETDATE() AS DATE)
-            THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(@birth_date), DAY(@birth_date))
-        ELSE DATEFROMPARTS(YEAR(GETDATE()) + 1, MONTH(@birth_date), DAY(@birth_date))
-    END AS next_anniv;
+        WHEN DATEFROMPARTS(
+                YEAR(GETDATE()),
+                MONTH(x.dt),
+                DAY(x.dt)
+             ) > CAST(GETDATE() AS DATE)
+        THEN DATEFROMPARTS(
+                YEAR(GETDATE()),
+                MONTH(x.dt),
+                DAY(x.dt)
+             )
+        ELSE DATEFROMPARTS(
+                YEAR(GETDATE()) + 1,
+                MONTH(x.dt),
+                DAY(x.dt)
+             )
+    END AS next_anniv
+
+FROM tr_dt t
+
+CROSS APPLY (
+    SELECT TRY_CONVERT(date, CAST(t.issdt AS char(8))) AS dt
+) x
+
+WHERE x.dt IS NOT NULL;
