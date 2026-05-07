@@ -1,0 +1,22 @@
+CREATE FUNCTION dbo.fn_next_anniv (@birth_date DATE)
+RETURNS DATE
+AS
+BEGIN
+    DECLARE @this_year_anniv DATE;
+
+    SET @this_year_anniv =
+        DATEFROMPARTS(
+            YEAR(GETDATE()),
+            MONTH(@birth_date),
+            DAY(@birth_date)
+        );
+
+    RETURN
+    (
+        CASE
+            WHEN @this_year_anniv > CAST(GETDATE() AS DATE)
+                THEN @this_year_anniv
+            ELSE DATEADD(YEAR, 1, @this_year_anniv)
+        END
+    );
+END;
