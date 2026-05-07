@@ -1,0 +1,16 @@
+DECLARE @birth_date DATE = '1992-03-11';
+
+SELECT
+    @birth_date AS birth_date,
+
+    CASE
+        WHEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(@birth_date), DAY(@birth_date)) <= CAST(GETDATE() AS DATE)
+            THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(@birth_date), DAY(@birth_date))
+        ELSE DATEFROMPARTS(YEAR(GETDATE()) - 1, MONTH(@birth_date), DAY(@birth_date))
+    END AS last_anniv,
+
+    CASE
+        WHEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(@birth_date), DAY(@birth_date)) > CAST(GETDATE() AS DATE)
+            THEN DATEFROMPARTS(YEAR(GETDATE()), MONTH(@birth_date), DAY(@birth_date))
+        ELSE DATEFROMPARTS(YEAR(GETDATE()) + 1, MONTH(@birth_date), DAY(@birth_date))
+    END AS next_anniv;
