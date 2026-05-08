@@ -1,0 +1,50 @@
+DECLARE @cols NVARCHAR(MAX)
+DECLARE @sql NVARCHAR(MAX)
+
+-- Generate dynamic column
+SELECT @cols =
+    STUFF((
+        SELECT DISTINCT
+            ',' + QUOTENAME(j.[key])
+        FROM sola s
+        CROSS APPLY OPENJSON(s.transdata) j
+        WHERE s.type IN ('changeben','changephone','changemail')
+          AND s.transdate >= '2024-01-01'
+        FOR XML PATH(''), TYPE
+    ).value('.', 'NVARCHAR(MAX)')
+    ,1,1,'')
+
+-- Dynamic pivot query
+SET @sql = '
+SELECT
+    polnum,
+    caseno,
+    posno,
+    type,
+    transdate,
+    ' + @cols + '
+FROM
+(
+    SELECT
+        s.polnum,
+        s.caseno,
+        s.posno,
+        s.type,
+        s.transdate,
+        j.[key],
+        j.value
+    FROM sola s
+    CROSS APPLY OPENJSON(s.transdata) j
+    WHERE s.type IN (''changeben'',''changephone'',''changemail'')
+      AND s.transdate >= ''2024-01-01''
+) src
+PIVOT
+(
+    MAX(value)
+    FOR [key] IN (' + @cols + ')
+) p
+ORDER BY polnum, caseno, posno
+'
+
+PRINT @sql
+EXEC(@sql)
