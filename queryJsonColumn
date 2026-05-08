@@ -1,0 +1,32 @@
+DECLARE @cols NVARCHAR(MAX)
+DECLARE @sql NVARCHAR(MAX)
+
+-- Ambil semua key JSON jadi nama kolom
+SELECT @cols = STRING_AGG(QUOTENAME([key]), ',')
+FROM (
+    SELECT DISTINCT j.[key]
+    FROM sola s
+    CROSS APPLY OPENJSON(s.transdata) j
+) a
+
+-- Dynamic pivot
+SET @sql = '
+SELECT *
+FROM
+(
+    SELECT
+        s.id,
+        j.[key],
+        j.value
+    FROM sola s
+    CROSS APPLY OPENJSON(s.transdata) j
+) src
+PIVOT
+(
+    MAX(value)
+    FOR [key] IN (' + @cols + ')
+) p
+ORDER BY id
+'
+
+EXEC(@sql)
