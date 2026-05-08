@@ -1,20 +1,23 @@
 DECLARE @cols NVARCHAR(MAX)
 DECLARE @sql NVARCHAR(MAX)
 
--- Generate dynamic column
-SELECT @cols =
-    STUFF((
-        SELECT DISTINCT
-            ',' + QUOTENAME(j.[key])
+-- Ambil semua key JSON jadi dynamic column
+SELECT @cols = STUFF(
+(
+    SELECT ',' + QUOTENAME(x.[key])
+    FROM
+    (
+        SELECT DISTINCT j.[key]
         FROM sola s
         CROSS APPLY OPENJSON(s.transdata) j
         WHERE s.type IN ('changeben','changephone','changemail')
           AND s.transdate >= '2024-01-01'
-        FOR XML PATH(''), TYPE
-    ).value('.', 'NVARCHAR(MAX)')
-    ,1,1,'')
+    ) x
+    FOR XML PATH(''), TYPE
+).value('.', 'NVARCHAR(MAX)')
+,1,1,'')
 
--- Dynamic pivot query
+-- Dynamic pivot
 SET @sql = '
 SELECT
     polnum,
@@ -47,4 +50,4 @@ ORDER BY polnum, caseno, posno
 '
 
 PRINT @sql
-EXEC(@sql)
+EXEC sp_executesql @sql
