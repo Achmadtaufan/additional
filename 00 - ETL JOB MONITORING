@@ -1,0 +1,43 @@
+CREATE PROCEDURE dbo.sp_monitor_job_status
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        name AS JobName,
+        enabled AS IsEnabled
+    INTO #CurrentJob
+    FROM msdb.dbo.sysjobs;
+
+    -- Hanya tampilkan yang berubah
+    SELECT
+        c.JobName,
+        CASE
+            WHEN p.IsEnabled = 1 THEN 'Enabled'
+            ELSE 'Disabled'
+        END AS PreviousStatus,
+        CASE
+            WHEN c.IsEnabled = 1 THEN 'Enabled'
+            ELSE 'Disabled'
+        END AS CurrentStatus
+    FROM #CurrentJob c
+    INNER JOIN dbo.temp_monitor_job p
+        ON c.JobName = p.JobName
+    WHERE c.IsEnabled <> p.IsEnabled;
+
+    -- Update snapshot untuk pemeriksaan berikutnya
+    TRUNCATE TABLE dbo.temp_monitor_job;
+
+    INSERT INTO dbo.temp_monitor_job
+    (
+        JobName,
+        IsEnabled,
+        SnapshotDate
+    )
+    SELECT
+        JobName,
+        IsEnabled,
+        GETDATE()
+    FROM #CurrentJob;
+END
+GO
