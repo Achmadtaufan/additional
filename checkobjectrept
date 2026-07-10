@@ -1,0 +1,21 @@
+DECLARE @Find TABLE (Keyword VARCHAR(100));
+
+INSERT INTO @Find
+VALUES
+('tn_aa_v'),
+('v_oo_c'),
+('vw_std_g');
+
+DECLARE @SQL NVARCHAR(MAX) = N'
+SELECT DISTINCT t.*
+FROM tes t
+WHERE EXISTS
+(
+    SELECT 1
+    FROM @Find f
+    WHERE t.sqlquery LIKE ''%'' + f.Keyword + ''%''
+);';
+
+EXEC sp_executesql
+    @SQL,
+    N'@Find TABLE (Keyword VARCHAR(100)) READONLY';
