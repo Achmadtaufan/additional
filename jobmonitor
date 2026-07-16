@@ -1,0 +1,20 @@
+SELECT
+    ISNULL(c.JobName, p.JobName) AS JobName,
+    CASE
+        WHEN p.JobName IS NULL THEN 'New Job'
+        WHEN p.IsEnabled = 1 THEN 'Enabled'
+        ELSE 'Disabled'
+    END AS PreviousStatus,
+    CASE
+        WHEN c.JobName IS NULL THEN 'Deleted'
+        WHEN c.IsEnabled = 1 THEN 'Enabled'
+        ELSE 'Disabled'
+    END AS CurrentStatus
+FROM #CurrentJob c
+FULL OUTER JOIN dbo.temp_monitor_job p
+    ON c.JobName = p.JobName
+WHERE
+      c.JobName IS NULL          -- Job dihapus
+   OR p.JobName IS NULL          -- Job baru
+   OR c.IsEnabled <> p.IsEnabled -- Status berubah
+ORDER BY JobName;
