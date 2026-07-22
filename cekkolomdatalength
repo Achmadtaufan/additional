@@ -1,0 +1,28 @@
+DECLARE @TableName SYSNAME = 'test';
+DECLARE @SQL NVARCHAR(MAX) = '';
+
+SELECT @SQL += '
+SELECT
+    ''' + c.name + ''' AS ColumnName,
+    LEN(' + QUOTENAME(c.name) + ') AS LenValue,
+    DATALENGTH(' + QUOTENAME(c.name) + ') AS DataLengthValue,
+    ' + QUOTENAME(c.name) + ' AS ColumnValue
+FROM ' + QUOTENAME(@TableName) + '
+WHERE ' + QUOTENAME(c.name) + ' IS NOT NULL
+  AND DATALENGTH(' + QUOTENAME(c.name) + ') <> ' +
+CASE
+    WHEN t.name IN ('nvarchar','nchar')
+        THEN 'LEN(' + QUOTENAME(c.name) + ') * 2'
+    ELSE 'LEN(' + QUOTENAME(c.name) + ')'
+END + '
+UNION ALL
+'
+FROM sys.columns c
+JOIN sys.types t
+    ON c.user_type_id = t.user_type_id
+WHERE c.object_id = OBJECT_ID(@TableName)
+  AND t.name IN ('char','varchar','nchar','nvarchar');
+
+SET @SQL = LEFT(@SQL, LEN(@SQL) - LEN('UNION ALL' + CHAR(13) + CHAR(10)));
+
+EXEC sp_executesql @SQL;
