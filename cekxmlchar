@@ -1,0 +1,35 @@
+DECLARE @TableName SYSNAME = 'test';
+DECLARE @SQL NVARCHAR(MAX) = '';
+
+SELECT @SQL = @SQL + '
+SELECT
+    ''' + c.name + ''' AS ColumnName,
+    B.AsciiCode,
+    CHARINDEX(CHAR(B.AsciiCode), ' + QUOTENAME(c.name) + ') AS Position,
+    CONVERT(VARBINARY(MAX), ' + QUOTENAME(c.name) + ') AS HexValue,
+    ' + QUOTENAME(c.name) + ' AS ColumnValue
+FROM ' + QUOTENAME(@TableName) + '
+CROSS APPLY
+(
+    VALUES
+    (0),(1),(2),(3),(4),(5),(6),(7),(8),
+    (11),(12),
+    (14),(15),(16),(17),(18),(19),
+    (20),(21),(22),(23),(24),
+    (25),(26),(27),(28),(29),(30),(31)
+) B(AsciiCode)
+WHERE ' + QUOTENAME(c.name) + ' IS NOT NULL
+  AND CHARINDEX(CHAR(B.AsciiCode), ' + QUOTENAME(c.name) + ') > 0
+UNION ALL
+'
+FROM sys.columns c
+JOIN sys.types t
+    ON c.user_type_id = t.user_type_id
+WHERE c.object_id = OBJECT_ID(@TableName)
+  AND t.name IN ('char','varchar','nchar','nvarchar');
+
+IF LEN(@SQL) > 0
+BEGIN
+    SET @SQL = LEFT(@SQL, LEN(@SQL) - LEN('UNION ALL' + CHAR(13) + CHAR(10)));
+    EXEC sp_executesql @SQL;
+END
