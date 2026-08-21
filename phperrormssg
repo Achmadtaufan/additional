@@ -1,0 +1,15 @@
+$result = odbc_exec($myconn, "EXEC sp_validasi_uploaddata");
+
+if (!$result) {
+    $message = odbc_errormsg($myconn);
+
+    echo "<script>
+        alert(" . json_encode($message) . ");
+    </script>";
+
+    exit;
+}
+
+echo "Ini dijalankan kalau SP berhasil";
+
+// proses lainnya
