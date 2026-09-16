@@ -1,0 +1,69 @@
+$folder = "D:\datamart"
+$keywordFile = "D:\keyword.txt"
+$outputFile = "D:\hasil_pencarian.csv"
+
+# Baca keyword
+$keywords = Get-Content $keywordFile |
+    Where-Object { $_.Trim() -ne "" } |
+    ForEach-Object { $_.Trim() }
+
+# Ambil semua file DTSX
+$files = Get-ChildItem $folder -Filter "*.dtsx" -Recurse -File
+
+$totalFiles = $files.Count
+$currentFile = 0
+
+Write-Host "========================================="
+Write-Host "DTSX Keyword Search"
+Write-Host "========================================="
+Write-Host "Total file DTSX : $totalFiles"
+Write-Host "Total keyword   : $($keywords.Count)"
+Write-Host ""
+
+$result = foreach ($file in $files) {
+
+    $currentFile++
+
+    # Tampilkan progress
+    $percent = [math]::Round(($currentFile / $totalFiles) * 100, 0)
+
+    Write-Progress `
+        -Activity "Scanning DTSX files..." `
+        -Status "$currentFile / $totalFiles : $($file.Name)" `
+        -PercentComplete $percent
+
+    # Baca isi DTSX
+    $content = Get-Content $file.FullName -Raw
+
+    foreach ($keyword in $keywords) {
+
+        if ($content.IndexOf($keyword, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+
+            [PSCustomObject]@{
+                Keyword  = $keyword
+                FileName = $file.Name
+                FullPath = $file.FullName
+                Found    = "YES"
+            }
+        }
+    }
+}
+
+# Selesai progress
+Write-Progress `
+    -Activity "Scanning DTSX files..." `
+    -Status "Completed" `
+    -Completed
+
+# Export hasil
+$result | Export-Csv $outputFile -NoTypeInformation -Encoding UTF8
+
+Write-Host ""
+Write-Host "========================================="
+Write-Host "SELESAI"
+Write-Host "========================================="
+Write-Host "File DTSX        : $totalFiles"
+Write-Host "Keyword          : $($keywords.Count)"
+Write-Host "Keyword ditemukan: $($result.Count)"
+Write-Host "Hasil            : $outputFile"
+Write-Host "========================================="
