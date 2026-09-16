@@ -1,0 +1,36 @@
+$folder = "D:\datamart"
+$keywordFile = "D:\keyword.txt"
+$outputFile = "D:\hasil_pencarian.csv"
+
+# Baca keyword
+$keywords = Get-Content $keywordFile |
+    Where-Object { $_.Trim() -ne "" } |
+    ForEach-Object { $_.Trim() }
+
+# Ambil semua file DTSX
+$files = Get-ChildItem $folder -Filter "*.dtsx" -Recurse -File
+
+$result = foreach ($file in $files) {
+
+    # Baca isi DTSX
+    $content = Get-Content $file.FullName -Raw
+
+    foreach ($keyword in $keywords) {
+
+        if ($content.IndexOf($keyword, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+
+            [PSCustomObject]@{
+                Keyword  = $keyword
+                FileName = $file.Name
+                FullPath = $file.FullName
+                Found    = "YES"
+            }
+        }
+    }
+}
+
+# Export hasil
+$result | Export-Csv $outputFile -NoTypeInformation -Encoding UTF8
+
+Write-Host "Selesai."
+Write-Host "Hasil: $outputFile"
