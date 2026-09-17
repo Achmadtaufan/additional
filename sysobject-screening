@@ -1,0 +1,80 @@
+CREATE TABLE #Result
+(
+    ServerName   VARCHAR(128),
+    DatabaseName VARCHAR(128),
+    ObjectType   VARCHAR(60),
+    SchemaName   VARCHAR(128),
+    ObjectName   VARCHAR(128),
+    FoundKeyword VARCHAR(50)
+);
+
+DECLARE @DBName VARCHAR(128);
+DECLARE @SQL VARCHAR(MAX);
+
+DECLARE db_cursor CURSOR FOR
+SELECT name
+FROM sys.databases
+WHERE database_id > 4
+  AND state_desc = 'ONLINE';
+
+OPEN db_cursor;
+
+FETCH NEXT FROM db_cursor INTO @DBName;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+
+    SET @SQL = '
+    USE ' + QUOTENAME(@DBName) + ';
+
+    INSERT INTO #Result
+    (
+        ServerName,
+        DatabaseName,
+        ObjectType,
+        SchemaName,
+        ObjectName,
+        FoundKeyword
+    )
+    SELECT
+        CAST(SERVERPROPERTY(''ServerName'') AS VARCHAR(128)),
+        DB_NAME(),
+        o.type_desc,
+        SCHEMA_NAME(o.schema_id),
+        o.name,
+        CASE
+            WHEN m.definition LIKE ''%fwm%'' THEN ''fwm''
+            WHEN m.definition LIKE ''%agent_level%'' THEN ''agent_level''
+            WHEN m.definition LIKE ''%fwd%'' THEN ''fwd''
+        END
+    FROM sys.sql_modules m
+    INNER JOIN sys.objects o
+        ON m.object_id = o.object_id
+    WHERE
+        m.definition LIKE ''%fwm%''
+        OR m.definition LIKE ''%agent_level%''
+        OR m.definition LIKE ''%fwd%'';
+    ';
+
+    BEGIN TRY
+        EXEC (@SQL);
+    END TRY
+    BEGIN CATCH
+        PRINT 'Error database: ' + @DBName;
+        PRINT ERROR_MESSAGE();
+    END CATCH;
+
+    FETCH NEXT FROM db_cursor INTO @DBName;
+END;
+
+CLOSE db_cursor;
+DEALLOCATE db_cursor;
+
+SELECT *
+FROM #Result
+ORDER BY
+    ServerName,
+    DatabaseName,
+    ObjectType,
+    SchemaName,
+    ObjectName;
