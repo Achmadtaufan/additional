@@ -7,51 +7,84 @@ $ObjectFile = "C:\tes\screening.txt"
 $OutputCsv  = "C:\tes\hasil_screening_dtsx.csv"
 
 # ============================================================
-# READ OBJECT LIST
+# VALIDASI FILE / FOLDER
 # ============================================================
 
-$Objects = Get-Content $ObjectFile |
-    ForEach-Object { $_.Trim() } |
-    Where-Object { $_ -ne "" } |
+if (-not (Test-Path $DtsxFolder)) {
+    Write-Host "Folder DTSX tidak ditemukan: $DtsxFolder" -ForegroundColor Red
+    exit
+}
+
+if (-not (Test-Path $ObjectFile)) {
+    Write-Host "File object tidak ditemukan: $ObjectFile" -ForegroundColor Red
+    exit
+}
+
+# ============================================================
+# BACA OBJECT LIST
+# ============================================================
+
+$Objects = @(
+    Get-Content -Path $ObjectFile |
+    ForEach-Object {
+        $_.Trim()
+    } |
+    Where-Object {
+        $_ -ne ""
+    } |
     Sort-Object -Unique
+)
 
 if ($Objects.Count -eq 0) {
     Write-Host "Tidak ada object di $ObjectFile" -ForegroundColor Red
     exit
 }
 
-Write-Host "Jumlah object : $($Objects.Count)" -ForegroundColor Cyan
-
 # ============================================================
-# GET DTSX FILES
+# AMBIL SEMUA DTSX
 # ============================================================
 
-$DtsxFiles = Get-ChildItem `
-    -Path $DtsxFolder `
-    -Filter "*.dtsx" `
-    -File `
-    -Recurse
+$DtsxFiles = @(
+    Get-ChildItem `
+        -Path $DtsxFolder `
+        -Filter "*.dtsx" `
+        -File `
+        -Recurse `
+        -ErrorAction SilentlyContinue
+)
 
-Write-Host "Jumlah DTSX   : $($DtsxFiles.Count)" -ForegroundColor Cyan
+if ($DtsxFiles.Count -eq 0) {
+    Write-Host "Tidak ada file DTSX ditemukan." -ForegroundColor Red
+    exit
+}
+
+Write-Host ""
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "SCREENING DTSX" -ForegroundColor Cyan
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "Object list : $($Objects.Count)"
+Write-Host "DTSX files  : $($DtsxFiles.Count)"
+Write-Host "Output      : $OutputCsv"
+Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
 # ============================================================
-# HELPER : GET XML ATTRIBUTE BY LOCAL NAME
+# FUNCTION: GET ATTRIBUTE BERDASARKAN LOCALNAME
 # ============================================================
 
-function Get-XmlAttributeValue {
+function Get-XmlAttribute {
     param (
         [System.Xml.XmlNode]$Node,
-        [string]$AttributeName
+        [string]$Name
     )
 
     if ($null -eq $Node) {
         return $null
     }
 
-    foreach ($Attr in $Node.Attributes) {
-        if ($Attr.LocalName -eq $AttributeName) {
-            return $Attr.Value
+    foreach ($Attribute in $Node.Attributes) {
+        if ($Attribute.LocalName -eq $Name) {
+            return $Attribute.Value
         }
     }
 
@@ -59,13 +92,13 @@ function Get-XmlAttributeValue {
 }
 
 # ============================================================
-# HELPER : GET COMPONENT PROPERTY
+# FUNCTION: GET COMPONENT PROPERTY
 # ============================================================
 
-function Get-ComponentProperty {
+function Get-PropertyValue {
     param (
         [System.Xml.XmlNode]$Component,
-        [string[]]$PropertyNames
+        [string[]]$Names
     )
 
     $Properties = $Component.SelectNodes(
@@ -74,12 +107,23 @@ function Get-ComponentProperty {
 
     foreach ($Property in $Properties) {
 
-        $Name = Get-XmlAttributeValue `
+        $PropertyName = Get-XmlAttribute `
             -Node $Property `
-            -AttributeName "name"
+            -Name "name"
 
-        if ($Name -and ($PropertyNames -contains $Name)) {
-            return $Property.InnerText.Trim()
+        if ($null -ne $PropertyName) {
+
+            foreach ($Name in $Names) {
+
+                if ($PropertyName -ieq $Name) {
+
+                    $Value = $Property.InnerText
+
+                    if ($null -ne $Value) {
+                        return $Value.Trim()
+                    }
+                }
+            }
         }
     }
 
@@ -87,10 +131,10 @@ function Get-ComponentProperty {
 }
 
 # ============================================================
-# HELPER : GET CONNECTION MANAGER ID FROM COMPONENT
+# FUNCTION: GET CONNECTION MANAGER ID
 # ============================================================
 
-function Get-ComponentConnectionManagerID {
+function Get-ConnectionManagerID {
     param (
         [System.Xml.XmlNode]$Component
     )
@@ -101,9 +145,9 @@ function Get-ComponentConnectionManagerID {
 
     foreach ($Connection in $Connections) {
 
-        $ID = Get-XmlAttributeValue `
+        $ID = Get-XmlAttribute `
             -Node $Connection `
-            -AttributeName "connectionManagerID"
+            -Name "connectionManagerID"
 
         if ($ID) {
             return $ID
@@ -114,7 +158,7 @@ function Get-ComponentConnectionManagerID {
 }
 
 # ============================================================
-# HELPER : GET CONNECTION MANAGER INFORMATION
+# FUNCTION: PARSE CONNECTION STRING
 # ============================================================
 
 function Get-ConnectionInfo {
@@ -122,29 +166,35 @@ function Get-ConnectionInfo {
         [System.Xml.XmlNode]$ConnectionManager
     )
 
-    $OuterXml = $ConnectionManager.OuterXml
+    $XmlText = $ConnectionManager.OuterXml
 
-    $Server   = $null
+    $Server = $null
     $Database = $null
 
-    # Data Source / Server
-    $ServerMatch = [regex]::Match(
-        $OuterXml,
-        "(?i)(?:Data Source|Server)\s*=\s*([^;]+)"
+    # -----------------------------
+    # SERVER
+    # -----------------------------
+
+    $MatchServer = [regex]::Match(
+        $XmlText,
+        '(?i)(?:Data Source|Server)\s*=\s*([^;"]+)'
     )
 
-    if ($ServerMatch.Success) {
-        $Server = $ServerMatch.Groups[1].Value.Trim()
+    if ($MatchServer.Success) {
+        $Server = $MatchServer.Groups[1].Value.Trim()
     }
 
-    # Initial Catalog / Database
-    $DatabaseMatch = [regex]::Match(
-        $OuterXml,
-        "(?i)(?:Initial Catalog|Database)\s*=\s*([^;]+)"
+    # -----------------------------
+    # DATABASE
+    # -----------------------------
+
+    $MatchDatabase = [regex]::Match(
+        $XmlText,
+        '(?i)(?:Initial Catalog|Database)\s*=\s*([^;"]+)'
     )
 
-    if ($DatabaseMatch.Success) {
-        $Database = $DatabaseMatch.Groups[1].Value.Trim()
+    if ($MatchDatabase.Success) {
+        $Database = $MatchDatabase.Groups[1].Value.Trim()
     }
 
     return @{
@@ -154,70 +204,104 @@ function Get-ConnectionInfo {
 }
 
 # ============================================================
-# HELPER : GET CONNECTION MANAGER NAME
+# FUNCTION: GET EXECUTABLE / CONTAINER NAME
 # ============================================================
 
-function Get-ConnectionManagerName {
+function Get-ContainerName {
     param (
-        [System.Xml.XmlNode]$ConnectionManager
+        [System.Xml.XmlNode]$Pipeline
     )
 
-    $Name = Get-XmlAttributeValue `
-        -Node $ConnectionManager `
-        -AttributeName "ObjectName"
+    # Cari executable parent terdekat
+    $ParentExecutable = $Pipeline.SelectSingleNode(
+        "ancestor::*[local-name()='executable'][1]"
+    )
 
-    if ($Name) {
-        return $Name
+    if ($null -eq $ParentExecutable) {
+        return "(Data Flow Task)"
     }
 
-    return $null
+    # Cari ObjectName attribute
+    $ObjectName = Get-XmlAttribute `
+        -Node $ParentExecutable `
+        -Name "ObjectName"
+
+    if ($ObjectName) {
+        return $ObjectName
+    }
+
+    # Fallback: cari property ObjectName
+    $Properties = $ParentExecutable.SelectNodes(
+        ".//*[local-name()='property']"
+    )
+
+    foreach ($Property in $Properties) {
+
+        $PropertyName = Get-XmlAttribute `
+            -Node $Property `
+            -Name "name"
+
+        if ($PropertyName -ieq "ObjectName") {
+
+            if ($Property.InnerText) {
+                return $Property.InnerText.Trim()
+            }
+        }
+    }
+
+    return "(Data Flow Task)"
 }
 
 # ============================================================
-# RESULT ARRAY
+# RESULT
 # ============================================================
 
 $Results = New-Object System.Collections.Generic.List[object]
 
-$TotalFiles = $DtsxFiles.Count
-$FileNumber = 0
+# ============================================================
+# LOOP DTSX
+# ============================================================
 
-# ============================================================
-# SCAN DTSX
-# ============================================================
+$FileCounter = 0
+$TotalFiles = $DtsxFiles.Count
 
 foreach ($DtsxFile in $DtsxFiles) {
 
-    $FileNumber++
+    $FileCounter++
 
     $Percent = [math]::Round(
-        ($FileNumber / $TotalFiles) * 100,
+        ($FileCounter / $TotalFiles) * 100,
         0
     )
 
     Write-Progress `
         -Activity "Scanning DTSX" `
-        -Status "$FileNumber / $TotalFiles : $($DtsxFile.Name)" `
+        -Status "$FileCounter / $TotalFiles - $($DtsxFile.Name)" `
         -PercentComplete $Percent
 
-    Write-Host `
-        "[$FileNumber/$TotalFiles] $($DtsxFile.FullName)" `
-        -ForegroundColor DarkGray
+    Write-Host (
+        "[{0}/{1}] {2}" -f
+        $FileCounter,
+        $TotalFiles,
+        $DtsxFile.Name
+    ) -ForegroundColor DarkGray
 
     try {
 
-        # ----------------------------------------------------
+        # ====================================================
         # LOAD XML
-        # ----------------------------------------------------
+        # ====================================================
 
-        [xml]$Xml = Get-Content `
+        $XmlContent = Get-Content `
             -Path $DtsxFile.FullName `
             -Raw `
             -ErrorAction Stop
 
-        # ----------------------------------------------------
-        # GET ALL CONNECTION MANAGERS
-        # ----------------------------------------------------
+        [xml]$Xml = $XmlContent
+
+        # ====================================================
+        # CONNECTION MANAGERS
+        # ====================================================
 
         $ConnectionManagers = @{}
 
@@ -227,26 +311,26 @@ foreach ($DtsxFile in $DtsxFiles) {
 
         foreach ($CM in $CMNodes) {
 
-            $CMID = Get-XmlAttributeValue `
+            $CMID = Get-XmlAttribute `
                 -Node $CM `
-                -AttributeName "DTSID"
+                -Name "DTSID"
 
-            if ($CMID) {
+            if (-not $CMID) {
+                continue
+            }
 
-                $Info = Get-ConnectionInfo `
-                    -ConnectionManager $CM
+            $ConnectionInfo = Get-ConnectionInfo `
+                -ConnectionManager $CM
 
-                $ConnectionManagers[$CMID] = @{
-                    Name     = Get-ConnectionManagerName $CM
-                    Server   = $Info.Server
-                    Database = $Info.Database
-                }
+            $ConnectionManagers[$CMID] = @{
+                Server   = $ConnectionInfo.Server
+                Database = $ConnectionInfo.Database
             }
         }
 
-        # ----------------------------------------------------
-        # FIND ALL PIPELINES / DATA FLOW TASKS
-        # ----------------------------------------------------
+        # ====================================================
+        # CARI SEMUA PIPELINE
+        # ====================================================
 
         $Pipelines = $Xml.SelectNodes(
             "//*[local-name()='pipeline']"
@@ -254,42 +338,16 @@ foreach ($DtsxFile in $DtsxFiles) {
 
         foreach ($Pipeline in $Pipelines) {
 
-            # ------------------------------------------------
-            # FIND PARENT EXECUTABLE / DATA FLOW TASK
-            # ------------------------------------------------
+            # =================================================
+            # CONTAINER / DATA FLOW TASK
+            # =================================================
 
-            $ContainerName = $null
+            $ContainerName = Get-ContainerName `
+                -Pipeline $Pipeline
 
-            $ParentExecutable = $Pipeline.SelectSingleNode(
-                "ancestor::*[local-name()='executable'][1]"
-            )
-
-            if ($ParentExecutable) {
-
-                $ContainerName = Get-XmlAttributeValue `
-                    -Node $ParentExecutable `
-                    -AttributeName "ObjectName"
-
-                # Jika tidak ketemu, coba cari descendant ObjectName
-                if (-not $ContainerName) {
-
-                    $ObjectNameNode = $ParentExecutable.SelectSingleNode(
-                        ".//*[local-name()='property' and translate(@name,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')='objectname'][1]"
-                    )
-
-                    if ($ObjectNameNode) {
-                        $ContainerName = $ObjectNameNode.InnerText.Trim()
-                    }
-                }
-            }
-
-            if (-not $ContainerName) {
-                $ContainerName = "(Data Flow Task)"
-            }
-
-            # ------------------------------------------------
-            # GET ALL COMPONENTS IN THIS DATA FLOW
-            # ------------------------------------------------
+            # =================================================
+            # SEMUA COMPONENT DALAM PIPELINE
+            # =================================================
 
             $Components = @(
                 $Pipeline.SelectNodes(
@@ -301,228 +359,219 @@ foreach ($DtsxFile in $DtsxFiles) {
                 continue
             }
 
-            # ------------------------------------------------
-            # FIND OLE DB SOURCE COMPONENTS
-            # ------------------------------------------------
+            # =================================================
+            # CARI OLE DB SOURCE
+            # =================================================
 
-            $SourceComponents = @()
+            foreach ($SourceComponent in $Components) {
 
-            foreach ($Component in $Components) {
+                $SourceName = Get-XmlAttribute `
+                    -Node $SourceComponent `
+                    -Name "name"
 
-                $ComponentClass = Get-XmlAttributeValue `
-                    -Node $Component `
-                    -AttributeName "componentClassID"
-
-                $ComponentName = Get-XmlAttributeValue `
-                    -Node $Component `
-                    -AttributeName "name"
-
-                $ComponentXml = $Component.OuterXml
-
-                $IsOleDbSource = $false
-
-                if (
-                    $ComponentClass -match "(?i)OLEDBSource"
-                    -or
-                    $ComponentName -match "(?i)OLE DB Source|OLEDB Source"
-                ) {
-                    $IsOleDbSource = $true
-                }
-
-                if ($IsOleDbSource) {
-
-                    foreach ($ObjectName in $Objects) {
-
-                        # Exact-ish object name matching
-                        $Pattern = "(?i)(?<![A-Za-z0-9_])" +
-                                   [regex]::Escape($ObjectName) +
-                                   "(?![A-Za-z0-9_])"
-
-                        if ($ComponentXml -match $Pattern) {
-
-                            $SourceComponents += @{
-                                ObjectName      = $ObjectName
-                                Component        = $Component
-                                ComponentName    = $ComponentName
-                                ComponentClass  = $ComponentClass
-                            }
-                        }
-                    }
-                }
-            }
-
-            # ------------------------------------------------
-            # IF NO SOURCE FOUND, CONTINUE
-            # ------------------------------------------------
-
-            if ($SourceComponents.Count -eq 0) {
-                continue
-            }
-
-            # ------------------------------------------------
-            # FIND OLE DB DESTINATIONS
-            # ------------------------------------------------
-
-            $DestinationComponents = @()
-
-            foreach ($Component in $Components) {
-
-                $ComponentClass = Get-XmlAttributeValue `
-                    -Node $Component `
-                    -AttributeName "componentClassID"
-
-                $ComponentName = Get-XmlAttributeValue `
-                    -Node $Component `
-                    -AttributeName "name"
-
-                $IsOleDbDestination = $false
-
-                if (
-                    $ComponentClass -match "(?i)OLEDBDestination"
-                    -or
-                    $ComponentName -match "(?i)OLE DB Destination|OLEDB Destination"
-                ) {
-                    $IsOleDbDestination = $true
-                }
-
-                if ($IsOleDbDestination) {
-
-                    $DestinationComponents += @{
-                        Component       = $Component
-                        ComponentName   = $ComponentName
-                        ComponentClass  = $ComponentClass
-                    }
-                }
-            }
-
-            # ------------------------------------------------
-            # PROCESS EACH MATCHING SOURCE
-            # ------------------------------------------------
-
-            foreach ($Source in $SourceComponents) {
-
-                $SourceComponent = $Source.Component
-
-                $SourceConnectionID =
-                    Get-ComponentConnectionManagerID `
-                        -Component $SourceComponent
-
-                $SourceServer   = $null
-                $SourceDatabase = $null
-
-                if (
-                    $SourceConnectionID `
-                    -and `
-                    $ConnectionManagers.ContainsKey($SourceConnectionID)
-                ) {
-
-                    $SourceServer =
-                        $ConnectionManagers[$SourceConnectionID].Server
-
-                    $SourceDatabase =
-                        $ConnectionManagers[$SourceConnectionID].Database
-                }
+                $SourceClass = Get-XmlAttribute `
+                    -Node $SourceComponent `
+                    -Name "componentClassID"
 
                 # ------------------------------------------------
-                # DESTINATION
+                # CEK APAKAH OLE DB SOURCE
                 # ------------------------------------------------
 
-                if ($DestinationComponents.Count -eq 0) {
+                $IsSource = $false
 
-                    $Results.Add([PSCustomObject]@{
+                if ($SourceClass -match "(?i)OLEDBSource") {
+                    $IsSource = $true
+                }
 
-                        ObjectName           = $Source.ObjectName
-                        DTSXFile             = $DtsxFile.Name
-                        ContainerName        = $ContainerName
-                        SourceServer         = $SourceServer
-                        SourceDatabase       = $SourceDatabase
-                        DestinationServer    = $null
-                        DestinationDatabase  = $null
-                        DestinationTable     = $null
+                if ($SourceName -match "(?i)OLE DB Source") {
+                    $IsSource = $true
+                }
 
-                    })
+                if ($SourceName -match "(?i)OLEDB Source") {
+                    $IsSource = $true
+                }
 
+                if (-not $IsSource) {
                     continue
                 }
 
-                # ------------------------------------------------
-                # ONE ROW PER DESTINATION
-                # ------------------------------------------------
+                # =================================================
+                # CEK SETIAP OBJECT
+                # =================================================
 
-                foreach ($Destination in $DestinationComponents) {
+                foreach ($ObjectName in $Objects) {
 
-                    $DestinationComponent =
-                        $Destination.Component
+                    $Pattern = "(?i)(?<![A-Za-z0-9_])" +
+                               [regex]::Escape($ObjectName) +
+                               "(?![A-Za-z0-9_])"
 
-                    $DestinationConnectionID =
-                        Get-ComponentConnectionManagerID `
-                            -Component $DestinationComponent
+                    $SourceXml = $SourceComponent.OuterXml
 
-                    $DestinationServer   = $null
-                    $DestinationDatabase = $null
-
-                    if (
-                        $DestinationConnectionID `
-                        -and `
-                        $ConnectionManagers.ContainsKey(
-                            $DestinationConnectionID
-                        )
-                    ) {
-
-                        $DestinationServer =
-                            $ConnectionManagers[
-                                $DestinationConnectionID
-                            ].Server
-
-                        $DestinationDatabase =
-                            $ConnectionManagers[
-                                $DestinationConnectionID
-                            ].Database
+                    if ($SourceXml -notmatch $Pattern) {
+                        continue
                     }
 
-                    # ------------------------------------------------
-                    # DESTINATION TABLE
-                    # ------------------------------------------------
+                    Write-Host (
+                        "    FOUND : {0} | Container: {1}" -f
+                        $ObjectName,
+                        $ContainerName
+                    ) -ForegroundColor Green
 
-                    $DestinationTable =
-                        Get-ComponentProperty `
-                            -Component $DestinationComponent `
-                            -PropertyNames @(
-                                "OpenRowset",
-                                "TableName",
-                                "DestinationTable"
+                    # =================================================
+                    # SOURCE CONNECTION
+                    # =================================================
+
+                    $SourceCMID = Get-ConnectionManagerID `
+                        -Component $SourceComponent
+
+                    $SourceServer = $null
+                    $SourceDatabase = $null
+
+                    if (
+                        $SourceCMID -and
+                        $ConnectionManagers.ContainsKey($SourceCMID)
+                    ) {
+
+                        $SourceServer =
+                            $ConnectionManagers[$SourceCMID].Server
+
+                        $SourceDatabase =
+                            $ConnectionManagers[$SourceCMID].Database
+                    }
+
+                    # =================================================
+                    # CARI SEMUA OLE DB DESTINATION
+                    # DALAM PIPELINE YANG SAMA
+                    # =================================================
+
+                    $DestinationFound = $false
+
+                    foreach ($DestinationComponent in $Components) {
+
+                        $DestinationName = Get-XmlAttribute `
+                            -Node $DestinationComponent `
+                            -Name "name"
+
+                        $DestinationClass = Get-XmlAttribute `
+                            -Node $DestinationComponent `
+                            -Name "componentClassID"
+
+                        $IsDestination = $false
+
+                        if (
+                            $DestinationClass -match "(?i)OLEDBDestination"
+                        ) {
+                            $IsDestination = $true
+                        }
+
+                        if (
+                            $DestinationName -match "(?i)OLE DB Destination"
+                        ) {
+                            $IsDestination = $true
+                        }
+
+                        if (
+                            $DestinationName -match "(?i)OLEDB Destination"
+                        ) {
+                            $IsDestination = $true
+                        }
+
+                        if (-not $IsDestination) {
+                            continue
+                        }
+
+                        $DestinationFound = $true
+
+                        # =================================================
+                        # DESTINATION CONNECTION
+                        # =================================================
+
+                        $DestinationCMID =
+                            Get-ConnectionManagerID `
+                                -Component $DestinationComponent
+
+                        $DestinationServer = $null
+                        $DestinationDatabase = $null
+
+                        if (
+                            $DestinationCMID -and
+                            $ConnectionManagers.ContainsKey(
+                                $DestinationCMID
                             )
+                        ) {
 
-                    # ------------------------------------------------
-                    # ADD RESULT
-                    # ------------------------------------------------
+                            $DestinationServer =
+                                $ConnectionManagers[
+                                    $DestinationCMID
+                                ].Server
 
-                    $Results.Add([PSCustomObject]@{
+                            $DestinationDatabase =
+                                $ConnectionManagers[
+                                    $DestinationCMID
+                                ].Database
+                        }
 
-                        ObjectName           = $Source.ObjectName
-                        DTSXFile             = $DtsxFile.Name
-                        ContainerName        = $ContainerName
-                        SourceServer         = $SourceServer
-                        SourceDatabase       = $SourceDatabase
-                        DestinationServer    = $DestinationServer
-                        DestinationDatabase  = $DestinationDatabase
-                        DestinationTable     = $DestinationTable
+                        # =================================================
+                        # DESTINATION TABLE
+                        # =================================================
 
-                    })
+                        $DestinationTable =
+                            Get-PropertyValue `
+                                -Component $DestinationComponent `
+                                -Names @(
+                                    "OpenRowset",
+                                    "TableName",
+                                    "DestinationTable"
+                                )
+
+                        # =================================================
+                        # ADD RESULT
+                        # =================================================
+
+                        $Results.Add(
+                            [PSCustomObject]@{
+                                ObjectName          = $ObjectName
+                                DTSXFile            = $DtsxFile.Name
+                                ContainerName       = $ContainerName
+                                SourceServer        = $SourceServer
+                                SourceDatabase      = $SourceDatabase
+                                DestinationServer   = $DestinationServer
+                                DestinationDatabase = $DestinationDatabase
+                                DestinationTable    = $DestinationTable
+                            }
+                        )
+                    }
+
+                    # =================================================
+                    # SOURCE ADA, DESTINATION TIDAK ADA
+                    # =================================================
+
+                    if (-not $DestinationFound) {
+
+                        $Results.Add(
+                            [PSCustomObject]@{
+                                ObjectName          = $ObjectName
+                                DTSXFile            = $DtsxFile.Name
+                                ContainerName       = $ContainerName
+                                SourceServer        = $SourceServer
+                                SourceDatabase      = $SourceDatabase
+                                DestinationServer   = $null
+                                DestinationDatabase = $null
+                                DestinationTable    = $null
+                            }
+                        )
+                    }
                 }
             }
         }
-
     }
     catch {
 
-        Write-Host `
-            "ERROR: $($DtsxFile.FullName)" `
-            -ForegroundColor Red
-
-        Write-Host `
-            $_.Exception.Message `
-            -ForegroundColor Red
+        Write-Host ""
+        Write-Host "ERROR pada file:" -ForegroundColor Red
+        Write-Host $DtsxFile.FullName -ForegroundColor Red
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host ""
     }
 }
 
@@ -531,10 +580,10 @@ Write-Progress `
     -Completed
 
 # ============================================================
-# REMOVE DUPLICATES
+# REMOVE DUPLICATE
 # ============================================================
 
-$Results =
+$FinalResults = @(
     $Results |
     Sort-Object `
         ObjectName,
@@ -546,12 +595,13 @@ $Results =
         DestinationDatabase,
         DestinationTable `
     -Unique
+)
 
 # ============================================================
 # EXPORT CSV
 # ============================================================
 
-$Results |
+$FinalResults |
     Export-Csv `
         -Path $OutputCsv `
         -NoTypeInformation `
@@ -565,8 +615,7 @@ Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "SELESAI" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "Object        : $($Objects.Count)"
-Write-Host "DTSX          : $($DtsxFiles.Count)"
-Write-Host "Hasil         : $($Results.Count) baris"
-Write-Host "Output CSV    : $OutputCsv"
+Write-Host "Object ditemukan : $($FinalResults.Count)"
+Write-Host "DTSX diperiksa   : $TotalFiles"
+Write-Host "Output CSV       : $OutputCsv"
 Write-Host "============================================" -ForegroundColor Cyan
