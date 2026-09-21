@@ -1,0 +1,437 @@
+$Folder = "C:\screening"
+$Output = "C:\screening\hasil_screening.csv"
+
+$Keywords = @(
+    "fwp",
+    "fwo",
+    "fwm",
+    "agent_level",
+    "designationcd"
+)
+
+# ============================================================
+# START
+# ============================================================
+
+Write-Host ""
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host "             DTSX SCREENING START" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host "Folder : $Folder"
+Write-Host "Output : $Output"
+Write-Host ""
+
+$Files = @(Get-ChildItem -Path $Folder -Filter "*.dtsx" -File -Recurse)
+
+$Total = $Files.Count
+$Current = 0
+
+Write-Host "Total DTSX ditemukan : $Total" -ForegroundColor Yellow
+Write-Host ""
+
+$Results = @()
+
+foreach ($File in $Files) {
+
+    $Current++
+
+    $Percent = [math]::Round(($Current / $Total) * 100, 0)
+
+    Write-Progress `
+        -Activity "Scanning DTSX" `
+        -Status "$Current / $Total - $Percent% - $($File.Name)" `
+        -PercentComplete $Percent
+
+    Write-Host "[$Current/$Total - $Percent%] $($File.Name)" -ForegroundColor Gray
+
+    try {
+
+        # ----------------------------------------------------
+        # BACA FILE
+        # ----------------------------------------------------
+
+        $Content = Get-Content -LiteralPath $File.FullName -Raw -ErrorAction Stop
+
+        # ----------------------------------------------------
+        # CEK KEYWORD
+        # ----------------------------------------------------
+
+        $FoundKeywords = @()
+
+        foreach ($Keyword in $Keywords) {
+
+            if ($Content -match [regex]::Escape($Keyword)) {
+                $FoundKeywords += $Keyword
+            }
+        }
+
+        if ($FoundKeywords.Count -eq 0) {
+
+            Write-Host "    -> Tidak ada keyword" -ForegroundColor DarkGray
+            continue
+        }
+
+        Write-Host "    -> MATCH: $($FoundKeywords -join ', ')" -ForegroundColor Green
+
+        # ----------------------------------------------------
+        # LOAD XML
+        # ----------------------------------------------------
+
+        [xml]$Xml = $Content
+
+        # ----------------------------------------------------
+        # CONNECTION MANAGER
+        # ----------------------------------------------------
+
+        $ConnectionInfo = @{}
+
+        $ConnectionNodes = $Xml.SelectNodes(
+            "//*[local-name()='connectionManager']"
+        )
+
+        foreach ($CM in $ConnectionNodes) {
+
+            $CMId = ""
+
+            if ($CM.Attributes["DTSID"]) {
+                $CMId = $CM.Attributes["DTSID"].Value
+            }
+
+            if ($CMId -eq "") {
+                continue
+            }
+
+            $CMName = ""
+
+            if ($CM.Attributes["DTS:ObjectName"]) {
+                $CMName = $CM.Attributes["DTS:ObjectName"].Value
+            }
+
+            if ($CMName -eq "" -and $CM.Attributes["ObjectName"]) {
+                $CMName = $CM.Attributes["ObjectName"].Value
+            }
+
+            $CMText = $CM.OuterXml
+
+            $Server = ""
+            $Database = ""
+
+            # Server
+            $m = [regex]::Match(
+                $CMText,
+                '(?i)(?:Data Source|Server)\s*=\s*([^;"]+)'
+            )
+
+            if ($m.Success) {
+                $Server = $m.Groups[1].Value.Trim()
+            }
+
+            # Database
+            $m = [regex]::Match(
+                $CMText,
+                '(?i)(?:Initial Catalog|Database)\s*=\s*([^;"]+)'
+            )
+
+            if ($m.Success) {
+                $Database = $m.Groups[1].Value.Trim()
+            }
+
+            $ConnectionInfo[$CMId] = @{
+                Name     = $CMName
+                Server   = $Server
+                Database = $Database
+            }
+        }
+
+        # ----------------------------------------------------
+        # VARIABLES / EXPRESSIONS YANG MUNGKIN BERISI DB
+        # ----------------------------------------------------
+
+        $AllSourceServer = @()
+        $AllSourceDB = @()
+        $AllDestinationServer = @()
+        $AllDestinationDB = @()
+        $AllDestinationTable = @()
+
+        # ----------------------------------------------------
+        # CARI COMPONENT
+        # ----------------------------------------------------
+
+        $Components = $Xml.SelectNodes(
+            "//*[local-name()='component']"
+        )
+
+        foreach ($Component in $Components) {
+
+            $ComponentName = ""
+
+            if ($Component.Attributes["name"]) {
+                $ComponentName = $Component.Attributes["name"].Value
+            }
+
+            $ComponentClass = ""
+
+            if ($Component.Attributes["componentClassID"]) {
+                $ComponentClass = $Component.Attributes["componentClassID"].Value
+            }
+
+            $ComponentXML = $Component.OuterXml
+
+            # ------------------------------------------------
+            # DETEKSI SOURCE / DESTINATION
+            # ------------------------------------------------
+
+            $IsSource = $false
+            $IsDestination = $false
+
+            if (
+                $ComponentName -match '(?i)source' -or
+                $ComponentClass -match '(?i)OLEDBSource|ADO.NETSource|FlatFileSource'
+            ) {
+                $IsSource = $true
+            }
+
+            if (
+                $ComponentName -match '(?i)destination' -or
+                $ComponentClass -match '(?i)OLEDBDestination|ADO.NETDestination'
+            ) {
+                $IsDestination = $true
+            }
+
+            # Beberapa DTSX tidak menggunakan nama "Source"
+            if (
+                $ComponentXML -match '(?i)sqlCommand' -and
+                $ComponentXML -match '(?i)connectionManager'
+            ) {
+                $IsSource = $true
+            }
+
+            # ------------------------------------------------
+            # CONNECTION MANAGER ID
+            # ------------------------------------------------
+
+            $CMRef = ""
+
+            $CMNode = $Component.SelectSingleNode(
+                ".//*[local-name()='connection']"
+            )
+
+            if ($CMNode) {
+
+                if ($CMNode.Attributes["connectionManagerID"]) {
+                    $CMRef = $CMNode.Attributes["connectionManagerID"].Value
+                }
+
+                if ($CMRef -eq "" -and $CMNode.Attributes["connectionManagerId"]) {
+                    $CMRef = $CMNode.Attributes["connectionManagerId"].Value
+                }
+            }
+
+            $Server = ""
+            $Database = ""
+
+            if ($CMRef -ne "" -and $ConnectionInfo.ContainsKey($CMRef)) {
+
+                $Server = $ConnectionInfo[$CMRef].Server
+                $Database = $ConnectionInfo[$CMRef].Database
+            }
+
+            # ------------------------------------------------
+            # SOURCE
+            # ------------------------------------------------
+
+            if ($IsSource) {
+
+                if ($Server -ne "") {
+                    $AllSourceServer += $Server
+                }
+
+                if ($Database -ne "") {
+                    $AllSourceDB += $Database
+                }
+            }
+
+            # ------------------------------------------------
+            # DESTINATION
+            # ------------------------------------------------
+
+            if ($IsDestination) {
+
+                if ($Server -ne "") {
+                    $AllDestinationServer += $Server
+                }
+
+                if ($Database -ne "") {
+                    $AllDestinationDB += $Database
+                }
+
+                # --------------------------------------------
+                # CARI NAMA TABLE
+                # --------------------------------------------
+
+                $Properties = $Component.SelectNodes(
+                    ".//*[local-name()='property']"
+                )
+
+                foreach ($Property in $Properties) {
+
+                    $PropertyName = ""
+
+                    if ($Property.Attributes["name"]) {
+                        $PropertyName = $Property.Attributes["name"].Value
+                    }
+
+                    if (
+                        $PropertyName -match '(?i)^OpenRowset$' -or
+                        $PropertyName -match '(?i)^TableName$' -or
+                        $PropertyName -match '(?i)^Table$'
+                    ) {
+
+                        $Table = $Property.InnerText.Trim()
+
+                        if (
+                            $Table -ne "" -and
+                            $Table -notmatch '^\$\('
+                        ) {
+                            $AllDestinationTable += $Table
+                        }
+                    }
+                }
+
+                # Fallback: cari OpenRowset langsung dari XML component
+                if ($AllDestinationTable.Count -eq 0) {
+
+                    $m = [regex]::Matches(
+                        $ComponentXML,
+                        '(?i)(?:OpenRowset|TableName)[^>]*>([^<]+)<'
+                    )
+
+                    foreach ($x in $m) {
+
+                        $Table = $x.Groups[1].Value.Trim()
+
+                        if ($Table -ne "") {
+                            $AllDestinationTable += $Table
+                        }
+                    }
+                }
+            }
+        }
+
+        # ----------------------------------------------------
+        # UNIQUE VALUE
+        # ----------------------------------------------------
+
+        $AllSourceServer =
+            @($AllSourceServer | Where-Object { $_ } | Select-Object -Unique)
+
+        $AllSourceDB =
+            @($AllSourceDB | Where-Object { $_ } | Select-Object -Unique)
+
+        $AllDestinationServer =
+            @($AllDestinationServer | Where-Object { $_ } | Select-Object -Unique)
+
+        $AllDestinationDB =
+            @($AllDestinationDB | Where-Object { $_ } | Select-Object -Unique)
+
+        $AllDestinationTable =
+            @($AllDestinationTable | Where-Object { $_ } | Select-Object -Unique)
+
+        # ----------------------------------------------------
+        # FALLBACK:
+        # Cari DB langsung dari connection string DTSX
+        # ----------------------------------------------------
+
+        if ($AllSourceDB.Count -eq 0 -and $AllDestinationDB.Count -eq 0) {
+
+            $DBMatches = [regex]::Matches(
+                $Content,
+                '(?i)(?:Initial Catalog|Database)\s*=\s*([^;"]+)'
+            )
+
+            foreach ($Match in $DBMatches) {
+
+                $DB = $Match.Groups[1].Value.Trim()
+
+                if ($DB -ne "") {
+                    $AllSourceDB += $DB
+                }
+            }
+
+            $AllSourceDB =
+                @($AllSourceDB | Select-Object -Unique)
+        }
+
+        # ----------------------------------------------------
+        # OUTPUT CONSOLE
+        # ----------------------------------------------------
+
+        Write-Host "    Source Server       : $($AllSourceServer -join '; ')" -ForegroundColor Cyan
+        Write-Host "    Source DB           : $($AllSourceDB -join '; ')" -ForegroundColor Cyan
+        Write-Host "    Destination Server  : $($AllDestinationServer -join '; ')" -ForegroundColor Cyan
+        Write-Host "    Destination DB      : $($AllDestinationDB -join '; ')" -ForegroundColor Cyan
+        Write-Host "    Destination Table   : $($AllDestinationTable -join '; ')" -ForegroundColor Cyan
+        Write-Host ""
+
+        # ----------------------------------------------------
+        # MASUKKAN RESULT
+        # ----------------------------------------------------
+
+        $Results += [PSCustomObject]@{
+            FileName            = $File.Name
+            FullPath            = $File.FullName
+            Keyword             = ($FoundKeywords -join "; ")
+            SourceServer        = ($AllSourceServer -join "; ")
+            SourceDatabase      = ($AllSourceDB -join "; ")
+            DestinationServer   = ($AllDestinationServer -join "; ")
+            DestinationDatabase = ($AllDestinationDB -join "; ")
+            DestinationTable    = ($AllDestinationTable -join "; ")
+        }
+
+    }
+    catch {
+
+        Write-Host "    !!! ERROR !!!" -ForegroundColor Red
+        Write-Host "    $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host ""
+
+        $Results += [PSCustomObject]@{
+            FileName            = $File.Name
+            FullPath            = $File.FullName
+            Keyword             = "ERROR"
+            SourceServer        = ""
+            SourceDatabase      = ""
+            DestinationServer   = ""
+            DestinationDatabase = ""
+            DestinationTable    = ""
+        }
+    }
+}
+
+# ============================================================
+# SELESAI
+# ============================================================
+
+Write-Progress `
+    -Activity "Scanning DTSX" `
+    -Completed
+
+# ------------------------------------------------------------
+# EXPORT CSV
+# ------------------------------------------------------------
+
+$Results |
+    Export-Csv `
+        -Path $Output `
+        -NoTypeInformation `
+        -Encoding UTF8
+
+Write-Host ""
+Write-Host "============================================================" -ForegroundColor Green
+Write-Host "                 SCREENING SELESAI" -ForegroundColor Green
+Write-Host "============================================================" -ForegroundColor Green
+Write-Host "Total DTSX       : $Total"
+Write-Host "Total MATCH      : $($Results.Count)"
+Write-Host "Hasil CSV        : $Output"
+Write-Host "============================================================" -ForegroundColor Green
+Write-Host ""
