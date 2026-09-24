@@ -1,0 +1,105 @@
+;WITH CTE AS
+(
+    SELECT
+        menuName,
+        [query]
+    FROM comp
+),
+Keywords AS
+(
+    SELECT ' FROM ' AS Keyword
+    UNION ALL SELECT ' JOIN '
+    UNION ALL SELECT ' LEFT JOIN '
+    UNION ALL SELECT ' RIGHT JOIN '
+    UNION ALL SELECT ' INNER JOIN '
+    UNION ALL SELECT ' FULL JOIN '
+    UNION ALL SELECT ' LEFT OUTER JOIN '
+    UNION ALL SELECT ' RIGHT OUTER JOIN '
+    UNION ALL SELECT ' FULL OUTER JOIN '
+    UNION ALL SELECT ' CROSS JOIN '
+),
+FindObject AS
+(
+    SELECT
+        c.menuName,
+        c.[query],
+        k.Keyword,
+        CHARINDEX(
+            k.Keyword,
+            ' ' + UPPER(c.[query]) + ' '
+        ) AS KeywordPosition
+    FROM CTE c
+    CROSS JOIN Keywords k
+),
+ObjectPosition AS
+(
+    SELECT
+        menuName,
+        [query],
+        KeywordPosition,
+        KeywordLength =
+            LEN(Keyword)
+    FROM FindObject
+    WHERE KeywordPosition > 0
+),
+ExtractObject AS
+(
+    SELECT
+        menuName,
+
+        objectRaw =
+            LTRIM(RTRIM(
+                LEFT(
+                    SUBSTRING(
+                        [query],
+                        KeywordPosition + KeywordLength,
+                        LEN([query])
+                    ),
+                    CASE
+                        WHEN CHARINDEX(
+                            ' ',
+                            SUBSTRING(
+                                [query],
+                                KeywordPosition + KeywordLength,
+                                LEN([query])
+                            ) + ' '
+                        ) > 0
+                        THEN CHARINDEX(
+                            ' ',
+                            SUBSTRING(
+                                [query],
+                                KeywordPosition + KeywordLength,
+                                LEN([query])
+                            ) + ' '
+                        ) - 1
+                    END
+                )
+            ))
+    FROM ObjectPosition
+)
+SELECT DISTINCT
+    menuName,
+
+    objectName =
+        CASE
+            WHEN objectRaw LIKE '%].[%'
+                THEN PARSENAME(
+                    REPLACE(objectRaw, '[', ''),
+                    1
+                )
+
+            WHEN objectRaw LIKE '%.%'
+                THEN PARSENAME(objectRaw, 1)
+
+            ELSE
+                REPLACE(
+                    REPLACE(objectRaw, '[', ''),
+                    ']', ''
+                )
+        END
+
+FROM ExtractObject
+WHERE objectRaw <> ''
+ORDER BY
+    menuName,
+    objectName;
