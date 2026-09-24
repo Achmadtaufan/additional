@@ -2,13 +2,12 @@
 (
     SELECT
         menuName,
-        [query]
+        CAST([query] AS VARCHAR(MAX)) AS queryText
     FROM comp
 ),
 Keywords AS
 (
     SELECT ' FROM ' AS Keyword
-    UNION ALL SELECT ' JOIN '
     UNION ALL SELECT ' LEFT JOIN '
     UNION ALL SELECT ' RIGHT JOIN '
     UNION ALL SELECT ' INNER JOIN '
@@ -17,16 +16,17 @@ Keywords AS
     UNION ALL SELECT ' RIGHT OUTER JOIN '
     UNION ALL SELECT ' FULL OUTER JOIN '
     UNION ALL SELECT ' CROSS JOIN '
+    UNION ALL SELECT ' JOIN '
 ),
 FindObject AS
 (
     SELECT
         c.menuName,
-        c.[query],
+        c.queryText,
         k.Keyword,
         CHARINDEX(
             k.Keyword,
-            ' ' + UPPER(c.[query]) + ' '
+            ' ' + UPPER(c.queryText) + ' '
         ) AS KeywordPosition
     FROM CTE c
     CROSS JOIN Keywords k
@@ -35,10 +35,10 @@ ObjectPosition AS
 (
     SELECT
         menuName,
-        [query],
+        queryText,
+        Keyword,
         KeywordPosition,
-        KeywordLength =
-            LEN(Keyword)
+        LEN(Keyword) AS KeywordLength
     FROM FindObject
     WHERE KeywordPosition > 0
 ),
@@ -51,55 +51,63 @@ ExtractObject AS
             LTRIM(RTRIM(
                 LEFT(
                     SUBSTRING(
-                        [query],
+                        queryText,
                         KeywordPosition + KeywordLength,
-                        LEN([query])
+                        LEN(queryText)
                     ),
-                    CASE
-                        WHEN CHARINDEX(
-                            ' ',
-                            SUBSTRING(
-                                [query],
-                                KeywordPosition + KeywordLength,
-                                LEN([query])
-                            ) + ' '
-                        ) > 0
-                        THEN CHARINDEX(
-                            ' ',
-                            SUBSTRING(
-                                [query],
-                                KeywordPosition + KeywordLength,
-                                LEN([query])
-                            ) + ' '
-                        ) - 1
-                    END
+                    CHARINDEX(
+                        ' ',
+                        SUBSTRING(
+                            queryText,
+                            KeywordPosition + KeywordLength,
+                            LEN(queryText)
+                        ) + ' '
+                    ) - 1
                 )
             ))
     FROM ObjectPosition
+),
+FinalData AS
+(
+    SELECT
+        menuName,
+
+        objectName =
+            CASE
+                WHEN objectRaw LIKE '%].[%'
+                    THEN PARSENAME(
+                        REPLACE(
+                            REPLACE(objectRaw, '[', ''),
+                            ']', ''
+                        ),
+                        1
+                    )
+
+                WHEN objectRaw LIKE '%.%'
+                    THEN PARSENAME(
+                        REPLACE(
+                            REPLACE(objectRaw, '[', ''),
+                            ']', ''
+                        ),
+                        1
+                    )
+
+                ELSE
+                    REPLACE(
+                        REPLACE(objectRaw, '[', ''),
+                        ']', ''
+                    )
+            END
+
+    FROM ExtractObject
 )
 SELECT DISTINCT
     menuName,
-
-    objectName =
-        CASE
-            WHEN objectRaw LIKE '%].[%'
-                THEN PARSENAME(
-                    REPLACE(objectRaw, '[', ''),
-                    1
-                )
-
-            WHEN objectRaw LIKE '%.%'
-                THEN PARSENAME(objectRaw, 1)
-
-            ELSE
-                REPLACE(
-                    REPLACE(objectRaw, '[', ''),
-                    ']', ''
-                )
-        END
-
-FROM ExtractObject
-WHERE objectRaw <> ''
+    objectName
+FROM FinalData
+WHERE NULLIF(LTRIM(RTRIM(objectName)), '') IS NOT NULL
+  AND UPPER(LTRIM(RTRIM(objectName))) <> '( SELECT'
+  AND UPPER(REPLACE(LTRIM(RTRIM(objectName)), ' ', '')) <> '(SELECT'
 ORDER BY
     menuName,
     objectName;
