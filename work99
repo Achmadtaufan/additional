@@ -1,0 +1,197 @@
+;WITH SourceData AS
+(
+    SELECT
+        menuName,
+        queryText = CAST([query] AS VARCHAR(MAX))
+    FROM comp
+),
+CleanSpace AS
+(
+    SELECT
+        menuName,
+        queryText =
+            REPLACE(
+                REPLACE(
+                    REPLACE(
+                        REPLACE(
+                            REPLACE(
+                                CAST(queryText AS VARCHAR(MAX)),
+                                CHAR(13), ' '
+                            ),
+                            CHAR(10), ' '
+                        ),
+                        CHAR(9), ' '
+                    ),
+                    '  ', ' '
+                ),
+                '  ', ' '
+            )
+    FROM SourceData
+),
+Normalize AS
+(
+    SELECT
+        menuName,
+        queryText =
+            REPLACE(
+                REPLACE(
+                    REPLACE(
+                        REPLACE(
+                            REPLACE(
+                                REPLACE(
+                                    REPLACE(
+                                        REPLACE(
+                                            REPLACE(
+                                                REPLACE(
+                                                    REPLACE(
+                                                        ' ' + queryText + ' ',
+                                                        ' LEFT OUTER JOIN ', ' FROM '
+                                                    ),
+                                                    ' RIGHT OUTER JOIN ', ' FROM '
+                                                ),
+                                                ' FULL OUTER JOIN ', ' FROM '
+                                            ),
+                                            ' LEFT JOIN ', ' FROM '
+                                        ),
+                                        ' RIGHT JOIN ', ' FROM '
+                                    ),
+                                    ' INNER JOIN ', ' FROM '
+                                ),
+                                ' FULL JOIN ', ' FROM '
+                            ),
+                            ' CROSS JOIN ', ' FROM '
+                        ),
+                        ' OUTER APPLY ', ' FROM '
+                    ),
+                    ' CROSS APPLY ', ' FROM '
+                ),
+                ' JOIN ', ' FROM '
+            )
+    FROM CleanSpace
+),
+Normalize2 AS
+(
+    SELECT
+        menuName,
+        queryText =
+            REPLACE(
+                queryText,
+                ' FROM ',
+                '|FROM|'
+            )
+    FROM Normalize
+),
+FindFrom AS
+(
+    SELECT
+        menuName,
+        queryText,
+        pos = CHARINDEX('|FROM|', queryText)
+    FROM Normalize2
+
+    UNION ALL
+
+    SELECT
+        menuName,
+        queryText,
+        pos = CHARINDEX(
+            '|FROM|',
+            queryText,
+            pos + 6
+        )
+    FROM FindFrom
+    WHERE pos > 0
+),
+Extract AS
+(
+    SELECT
+        menuName,
+        objectPart =
+            LTRIM(
+                RTRIM(
+                    SUBSTRING(
+                        queryText,
+                        pos + 6,
+                        8000
+                    )
+                )
+            )
+    FROM FindFrom
+    WHERE pos > 0
+),
+FirstToken AS
+(
+    SELECT
+        menuName,
+        objectPart =
+            LEFT(
+                objectPart,
+                CASE
+                    WHEN CHARINDEX(
+                        ' ',
+                        objectPart + ' '
+                    ) > 0
+                    THEN CHARINDEX(
+                        ' ',
+                        objectPart + ' '
+                    ) - 1
+                    ELSE LEN(objectPart)
+                END
+            )
+    FROM Extract
+),
+CleanObject AS
+(
+    SELECT
+        menuName,
+        objectName =
+            CASE
+                WHEN LEFT(objectPart, 1) = '('
+                    THEN NULL
+
+                WHEN CHARINDEX('(', objectPart) > 0
+                    THEN LEFT(
+                        objectPart,
+                        CHARINDEX('(', objectPart) - 1
+                    )
+
+                ELSE objectPart
+            END
+    FROM FirstToken
+)
+SELECT DISTINCT
+    menuName,
+    objectName =
+        CASE
+            WHEN CHARINDEX('.', objectNameClean) > 0
+                THEN RIGHT(
+                    objectNameClean,
+                    CHARINDEX(
+                        '.',
+                        REVERSE(objectNameClean)
+                    ) - 1
+                )
+            ELSE objectNameClean
+        END
+FROM
+(
+    SELECT
+        menuName,
+        objectNameClean =
+            REPLACE(
+                REPLACE(
+                    LTRIM(RTRIM(objectName)),
+                    '[', ''
+                ),
+                ']', ''
+            )
+    FROM CleanObject
+    WHERE objectName IS NOT NULL
+) A
+WHERE NULLIF(objectNameClean, '') IS NOT NULL
+  AND objectNameClean <> '('
+  AND UPPER(objectNameClean) <> 'SELECT'
+ORDER BY
+    menuName,
+    objectName
+OPTION (MAXRECURSION 0);
