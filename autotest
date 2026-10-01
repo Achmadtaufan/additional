@@ -3,7 +3,13 @@ Add-Type -AssemblyName System.Windows.Forms
 Start-Process notepad.exe
 Start-Sleep -Seconds 2
 
+$wshell = New-Object -ComObject WScript.Shell
+$wshell.AppActivate("Notepad")
+Start-Sleep -Milliseconds 500
+
 while ($true) {
+    $wshell.AppActivate("Notepad")
+    
     [System.Windows.Forms.SendKeys]::SendWait("Test otomatis ")
     [System.Windows.Forms.SendKeys]::SendWait((Get-Date -Format "HH:mm:ss"))
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
