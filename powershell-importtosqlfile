@@ -1,0 +1,105 @@
+
+# ============================================================
+# EXPORT QUERY DARI TABLE ms_rpt KE FILE .SQL
+# Setiap row menjadi satu file .sql
+# ============================================================
+
+# --- KONFIGURASI ---
+$server       = "NAMA_SERVER"
+$database     = "NAMA_DATABASE"
+$tableName    = "dbo.ms_rpt"
+$queryColumn  = "query"
+$idColumn     = "id"
+$outputFolder = "C:\ExportSQL\Hasil"
+
+# --- LOGIN SQL SERVER ---
+$username = "zte"
+$securePassword = Read-Host "Masukkan password SQL Server" -AsSecureString
+$credential = New-Object System.Management.Automation.PSCredential(
+    $username, $securePassword
+)
+$passwordPlain = $credential.GetNetworkCredential().Password
+
+# --- PERSIAPAN FOLDER ---
+New-Item -ItemType Directory -Path $outputFolder -Force |
+    Out-Null
+
+# --- KONEKSI SQL SERVER ---
+$connectionString = "Server=$server;Database=$database;User ID=$username;Password=$passwordPlain;TrustServerCertificate=True;"
+
+$conn = New-Object System.Data.SqlClient.SqlConnection(
+    $connectionString
+)
+
+try {
+    $conn.Open()
+    Write-Host "Berhasil terhubung ke SQL Server." -ForegroundColor Green
+
+    # Ambil semua query
+    $cmd = $conn.CreateCommand()
+    $cmd.CommandTimeout = 0
+    $cmd.CommandText = @"
+SELECT
+    [$idColumn],
+    [$queryColumn]
+FROM $tableName
+ORDER BY [$idColumn];
+"@
+
+    $reader = $cmd.ExecuteReader()
+
+    $count = 0
+    $skipped = 0
+
+    while ($reader.Read()) {
+        $id = [string]$reader[$idColumn]
+
+        if ($reader.IsDBNull($reader.GetOrdinal($queryColumn))) {
+            Write-Host "Skip ID $id : query NULL" -ForegroundColor Yellow
+            $skipped++
+            continue
+        }
+
+        $sqlText = [string]$reader[$queryColumn]
+
+        # Karakter yang tidak valid pada nama file diganti
+        $safeId = $id -replace '[\\/:*?"<>|]', '_'
+        $fileName = "query_$safeId.sql"
+        $filePath = Join-Path $outputFolder $fileName
+
+        # Simpan isi query tanpa menambahkan header
+        [System.IO.File]::WriteAllText(
+            $filePath,
+            $sqlText,
+            [System.Text.UTF8Encoding]::new($false)
+        )
+
+        $count++
+
+        Write-Progress `
+            -Activity "Export query SQL" `
+            -Status "File: $fileName | Total: $count" `
+            -PercentComplete 0
+    }
+
+    $reader.Close()
+
+    Write-Host ""
+    Write-Host "===================================="
+    Write-Host "EXPORT SELESAI"
+    Write-Host "Jumlah file  : $count"
+    Write-Host "Query NULL   : $skipped"
+    Write-Host "Lokasi       : $outputFolder"
+    Write-Host "====================================" -ForegroundColor Green
+}
+catch {
+    Write-Host "EXPORT GAGAL!" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+}
+finally {
+    if ($conn.State -ne 'Closed') {
+        $conn.Close()
+    }
+
+    $passwordPlain = $null
+}
