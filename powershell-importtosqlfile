@@ -1,73 +1,116 @@
 
 # ============================================================
-# EXPORT QUERY DARI TABLE ms_rpt KE FILE .SQL
-# Setiap row menjadi satu file .sql
+# EXPORT QUERY DARI SQL SERVER KE FILE .SQL
+# Filter   : groupmenu = 'SPIN OFF UAT'
+# Nama file: menuname.sql
+# Isi file : kolom query
 # ============================================================
 
-# --- KONFIGURASI ---
+# 1. KONFIGURASI
 $server       = "NAMA_SERVER"
 $database     = "NAMA_DATABASE"
 $tableName    = "dbo.ms_rpt"
-$queryColumn  = "query"
-$idColumn     = "id"
 $outputFolder = "C:\ExportSQL\Hasil"
 
-# --- LOGIN SQL SERVER ---
+# 2. LOGIN SQL SERVER
 $username = "zte"
 $securePassword = Read-Host "Masukkan password SQL Server" -AsSecureString
+
 $credential = New-Object System.Management.Automation.PSCredential(
-    $username, $securePassword
+    $username,
+    $securePassword
 )
+
 $passwordPlain = $credential.GetNetworkCredential().Password
 
-# --- PERSIAPAN FOLDER ---
+# 3. BUAT FOLDER OUTPUT
 New-Item -ItemType Directory -Path $outputFolder -Force |
     Out-Null
 
-# --- KONEKSI SQL SERVER ---
+# 4. CONNECTION STRING
 $connectionString = "Server=$server;Database=$database;User ID=$username;Password=$passwordPlain;TrustServerCertificate=True;"
 
 $conn = New-Object System.Data.SqlClient.SqlConnection(
     $connectionString
 )
 
+$count = 0
+$skipped = 0
+$seenNames = @{}
+
 try {
+    # 5. BUKA KONEKSI
     $conn.Open()
+
     Write-Host "Berhasil terhubung ke SQL Server." -ForegroundColor Green
 
-    # Ambil semua query
+    # 6. AMBIL QUERY SESUAI FILTER
     $cmd = $conn.CreateCommand()
     $cmd.CommandTimeout = 0
+
     $cmd.CommandText = @"
 SELECT
-    [$idColumn],
-    [$queryColumn]
+    [menuname],
+    [query]
 FROM $tableName
-ORDER BY [$idColumn];
+WHERE [groupmenu] = @groupmenu
+ORDER BY [menuname];
 "@
+
+    $param = $cmd.Parameters.Add(
+        "@groupmenu",
+        [System.Data.SqlDbType]::NVarChar,
+        100
+    )
+    $param.Value = "SPIN OFF UAT"
 
     $reader = $cmd.ExecuteReader()
 
-    $count = 0
-    $skipped = 0
-
+    # 7. EXPORT SETIAP ROW MENJADI FILE SQL
     while ($reader.Read()) {
-        $id = [string]$reader[$idColumn]
 
-        if ($reader.IsDBNull($reader.GetOrdinal($queryColumn))) {
-            Write-Host "Skip ID $id : query NULL" -ForegroundColor Yellow
+        # Validasi menuname
+        if ($reader.IsDBNull($reader.GetOrdinal("menuname"))) {
+            Write-Host "Skip: menuname NULL" -ForegroundColor Yellow
             $skipped++
             continue
         }
 
-        $sqlText = [string]$reader[$queryColumn]
+        # Validasi query
+        if ($reader.IsDBNull($reader.GetOrdinal("query"))) {
+            Write-Host "Skip: query NULL" -ForegroundColor Yellow
+            $skipped++
+            continue
+        }
 
-        # Karakter yang tidak valid pada nama file diganti
-        $safeId = $id -replace '[\\/:*?"<>|]', '_'
-        $fileName = "query_$safeId.sql"
-        $filePath = Join-Path $outputFolder $fileName
+        $menuName = [string]$reader["menuname"]
+        $sqlText  = [string]$reader["query"]
 
-        # Simpan isi query tanpa menambahkan header
+        # Bersihkan karakter nama file yang tidak valid
+        $safeName = $menuName -replace '[\\/:*?"<>|]', '_'
+        $safeName = $safeName.Trim().TrimEnd('.')
+
+        if ([string]::IsNullOrWhiteSpace($safeName)) {
+            Write-Host "Skip: nama file kosong" -ForegroundColor Yellow
+            $skipped++
+            continue
+        }
+
+        # Hindari nama file duplikat atau bentrok
+        $key = $safeName.ToLowerInvariant()
+
+        if ($seenNames.ContainsKey($key)) {
+            Write-Host "Skip: nama file duplikat: $safeName.sql" -ForegroundColor Yellow
+            $skipped++
+            continue
+        }
+
+        $seenNames[$key] = $true
+
+        # Bentuk nama file berdasarkan menuname
+        $filePath = Join-Path $outputFolder "$safeName.sql"
+
+        # Simpan query tanpa header tambahan
         [System.IO.File]::WriteAllText(
             $filePath,
             $sqlText,
@@ -76,29 +119,32 @@ ORDER BY [$idColumn];
 
         $count++
 
+        Write-Host "Export: $safeName.sql" -ForegroundColor Green
+
         Write-Progress `
             -Activity "Export query SQL" `
-            -Status "File: $fileName | Total: $count" `
-            -PercentComplete 0
+            -Status "Berhasil export: $count file"
     }
 
     $reader.Close()
 
+    # 8. RINGKASAN
     Write-Host ""
-    Write-Host "===================================="
+    Write-Host "========================================"
     Write-Host "EXPORT SELESAI"
-    Write-Host "Jumlah file  : $count"
-    Write-Host "Query NULL   : $skipped"
-    Write-Host "Lokasi       : $outputFolder"
-    Write-Host "====================================" -ForegroundColor Green
+    Write-Host "Total file berhasil : $count"
+    Write-Host "Row dilewati        : $skipped"
+    Write-Host "Folder output       : $outputFolder"
+    Write-Host "Filter              : SPIN OFF UAT"
+    Write-Host "========================================" -ForegroundColor Green
 }
 catch {
     Write-Host "EXPORT GAGAL!" -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
 }
 finally {
-    if ($conn.State -ne 'Closed') {
-        $conn.Close()
+    if ($null -ne $conn) {
+        $conn.Dispose()
     }
 
     $passwordPlain = $null
