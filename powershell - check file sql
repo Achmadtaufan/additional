@@ -1,0 +1,16 @@
+$Folder = "D:\test"
+$Keyword = "Policy_Age"
+$OutputCSV = "D:\hasil_pencarian.csv"
+
+Get-ChildItem -Path $Folder -Filter "*.sql" -Recurse -File |
+    Select-String -Pattern $Keyword -SimpleMatch |
+    Select-Object `
+        @{Name="FileName"; Expression={$_.Filename}},
+        @{Name="FolderPath"; Expression={$_.Path | Split-Path -Parent}},
+        @{Name="FullPath"; Expression={$_.Path}},
+        @{Name="LineNumber"; Expression={$_.LineNumber}},
+        @{Name="LineContent"; Expression={$_.Line.Trim()}} |
+    Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding UTF8
+
+Write-Host "Pencarian selesai!"
+Write-Host "Hasil CSV: $OutputCSV"
