@@ -1,0 +1,23 @@
+
+$errorMessages = [];
+
+// Baca result set hanya jika SP mengembalikan kolom
+if (odbc_num_fields($res) > 0) {
+    while (@odbc_fetch_row($res)) {
+        $msg = trim((string) odbc_result($res, 1));
+
+        if ($msg !== '') {
+            $errorMessages[] = $msg;
+        }
+    }
+}
+
+if (count($errorMessages) > 0) {
+    echo "<h3>UPLOAD FAILED !!!</h3>";
+
+    foreach ($errorMessages as $msg) {
+        echo "<p>" . htmlspecialchars($msg) . "</p>";
+    }
+
+    return;
+}
