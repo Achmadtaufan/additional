@@ -1,0 +1,26 @@
+
+$errorMessages = [];
+
+do {
+    $fieldCount = odbc_num_fields($res);
+
+    if ($fieldCount > 0) {
+        while (@odbc_fetch_row($res)) {
+            $msg = trim((string) odbc_result($res, 1));
+
+            if ($msg !== '') {
+                $errorMessages[] = $msg;
+            }
+        }
+    }
+} while (@odbc_next_result($res));
+
+if (count($errorMessages) > 0) {
+    echo "<h3>UPLOAD FAILED !!!</h3>";
+
+    foreach ($errorMessages as $msg) {
+        echo "<p>" . htmlspecialchars($msg) . "</p>";
+    }
+
+    return;
+}
