@@ -1,0 +1,41 @@
+SELECT
+    p.polnum,
+    p.issueddate,
+    CASE
+        WHEN DATEADD(
+            YEAR,
+            DATEDIFF(YEAR, d.IssuedDate, GETDATE()),
+            d.IssuedDate
+        ) > CAST(GETDATE() AS DATE)
+        THEN DATEADD(
+            YEAR,
+            DATEDIFF(YEAR, d.IssuedDate, GETDATE()) - 1,
+            d.IssuedDate
+        )
+        ELSE DATEADD(
+            YEAR,
+            DATEDIFF(YEAR, d.IssuedDate, GETDATE()),
+            d.IssuedDate
+        )
+    END AS LastPolicyAnniv,
+    CASE
+        WHEN DATEADD(
+            YEAR,
+            DATEDIFF(YEAR, d.IssuedDate, GETDATE()),
+            d.IssuedDate
+        ) > CAST(GETDATE() AS DATE)
+        THEN DATEADD(
+            YEAR,
+            DATEDIFF(YEAR, d.IssuedDate, GETDATE()),
+            d.IssuedDate
+        )
+        ELSE DATEADD(
+            YEAR,
+            DATEDIFF(YEAR, d.IssuedDate, GETDATE()) + 1,
+            d.IssuedDate
+        )
+    END AS NextPolicyAnniv
+FROM policy p
+CROSS APPLY (
+    SELECT CONVERT(DATE, CONVERT(CHAR(8), p.issueddate), 112)
+) d(IssuedDate);
